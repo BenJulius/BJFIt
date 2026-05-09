@@ -146,3 +146,7 @@ node_modules
 .next
 .env.local
 .DS_Store
+.codex/
+dev*.log
+MOBILE_APP_NOTES.md
+PLAY_STORE_READINESS.md

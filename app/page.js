@@ -81,54 +81,7 @@ export default function Login() {
       window.google.accounts.id.prompt();
       return;
     }
-
-    // Keep users on our domain by launching OAuth in a popup first.
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        skipBrowserRedirect: true,
-        redirectTo: `${window.location.origin}/dashboard`,
-        queryParams: {
-          prompt: "select_account",
-        },
-      },
-    });
-    if (error) {
-      alert(error.message);
-      return;
-    }
-    if (!data?.url) {
-      alert("Unable to initialize Google sign-in.");
-      return;
-    }
-
-    const popup = window.open(
-      data.url,
-      "google-oauth",
-      "width=520,height=680,menubar=no,toolbar=no,status=no,scrollbars=yes,resizable=yes"
-    );
-    if (!popup) {
-      // Browser blocked popup; graceful fallback to full redirect.
-      window.location.href = data.url;
-      return;
-    }
-
-    setAuthing(true);
-    const started = Date.now();
-    const timer = window.setInterval(async () => {
-      const { data: sessionData } = await supabase.auth.getSession();
-      if (sessionData?.session) {
-        window.clearInterval(timer);
-        popup.close();
-        setAuthing(false);
-        router.replace("/dashboard");
-        return;
-      }
-      if (popup.closed || Date.now() - started > 120000) {
-        window.clearInterval(timer);
-        setAuthing(false);
-      }
-    }, 800);
+    alert("Google Sign-In is not configured on this environment yet. Please set NEXT_PUBLIC_GOOGLE_CLIENT_ID.");
   };
 
   return (
