@@ -7,14 +7,12 @@ import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import Script from "next/script";
 
-const FALLBACK_GOOGLE_CLIENT_ID = "990969413051-i5o5ah712n2qtfviqp3hep4ekj6ba8p4.apps.googleusercontent.com";
-
 export default function Login() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [authing, setAuthing] = useState(false);
   const [gisRendered, setGisRendered] = useState(false);
-  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || FALLBACK_GOOGLE_CLIENT_ID;
+  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 
   useEffect(() => {
     const checkUser = async () => {

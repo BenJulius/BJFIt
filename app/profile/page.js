@@ -253,6 +253,9 @@ export default function Profile() {
                     characterXP={progress.xp}
                     equipped={tileEquipped}
                   />
+                  <div className="absolute left-1 top-1">
+                    <CharacterPortrait characterId={activeCharacterId} size={26} className="border border-white/30 shadow" />
+                  </div>
                   {!owned && <div className="absolute inset-0 flex items-center justify-center bg-slate-950/60 text-[10px] font-black uppercase text-white">Locked</div>}
                 </div>
                 <p className="mt-2 truncate text-[10px] font-black uppercase tracking-wider text-slate-500">{equipped ? "Equipped" : item.name}</p>
