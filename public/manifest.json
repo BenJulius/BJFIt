@@ -1,0 +1,40 @@
+{
+  "name": "BJ Fit",
+  "short_name": "BJ Fit",
+  "start_url": "/",
+  "id": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#020617",
+  "theme_color": "#020617",
+  "description": "A gamified AI workout tracker with character progression, daily quests, and next-workout coaching.",
+  "categories": ["health", "fitness", "productivity"],
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "2048x2048",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/maskable-icon.png",
+      "sizes": "2048x2048",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Log Workout",
+      "short_name": "Log",
+      "url": "/log",
+      "description": "Add exercise sets"
+    },
+    {
+      "name": "AI Coach",
+      "short_name": "Coach",
+      "url": "/insights",
+      "description": "Get next-workout guidance"
+    }
+  ]
+}
