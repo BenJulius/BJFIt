@@ -80,6 +80,17 @@ export default function AppShell({ children }) {
   const blockProtectedRoute = !loading && (!session || !appRuntime) && !isPublic;
   const showNav = Boolean(session) && !isPublic;
 
+  useEffect(() => {
+    if (loading || isPublic) return;
+    if (!session) {
+      router.replace("/");
+      return;
+    }
+    if (!appRuntime) {
+      router.replace("/");
+    }
+  }, [loading, isPublic, session, appRuntime, router]);
+
   return (
     <div className="w-full max-w-md h-screen relative bg-slate-950 shadow-2xl overflow-hidden flex flex-col">
       <main className={`flex-1 overflow-y-auto relative z-10 ${showNav ? "pb-24" : "pb-0"}`}>
