@@ -28,6 +28,7 @@ export default function Profile() {
   const [username, setUsername] = useState("");
   const [usernameError, setUsernameError] = useState("");
   const [usernameSuccess, setUsernameSuccess] = useState("");
+  const [usernamePaymentReady, setUsernamePaymentReady] = useState(false);
 
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({ age: "", weight: "", goal: "", avatar: "panda" });
@@ -58,6 +59,10 @@ export default function Profile() {
   const saveUsername = async () => {
     setUsernameError("");
     setUsernameSuccess("");
+    if (!usernamePaymentReady) {
+      setUsernameError("Username changes require a $0.99 unlock first.");
+      return;
+    }
     
     if (profile.last_username_change) {
       const daysSinceChange = differenceInDays(new Date(), new Date(profile.last_username_change));
@@ -80,7 +85,17 @@ export default function Profile() {
     }).eq('id', profile.id);
     
     setProfile({ ...profile, last_username_change: isoDate });
+    setUsernamePaymentReady(false);
     setUsernameSuccess("Username updated!");
+  };
+
+  const unlockUsernameChange = () => {
+    const link = process.env.NEXT_PUBLIC_USERNAME_CHANGE_PAYMENT_LINK;
+    if (link) {
+      window.open(link, "_blank", "noopener,noreferrer");
+    }
+    setUsernamePaymentReady(true);
+    setUsernameSuccess("Unlock activated. You can submit one username change.");
   };
 
   const saveProfileDetails = async () => {
@@ -184,7 +199,7 @@ export default function Profile() {
             <div className="flex-1">
               <p className="text-xs font-black uppercase tracking-wider text-slate-500">Active Character</p>
               <p className="text-lg font-black text-slate-900 dark:text-white capitalize">{activeCharacterId}</p>
-              <p className="text-xs font-bold text-slate-500">Face portrait matches your in-app body style.</p>
+              <p className="text-xs font-bold text-slate-500">Locker styles and level form sync in real time.</p>
             </div>
             <button
               type="button"
@@ -208,6 +223,17 @@ export default function Profile() {
         />
         
         <div className="w-full space-y-2 mt-4">
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 dark:border-amber-400/20 dark:bg-amber-400/10">
+            <p className="text-[11px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-300">Premium Username Change</p>
+            <p className="mt-1 text-xs font-bold text-amber-700/90 dark:text-amber-200">Each username change costs $0.99.</p>
+            <button
+              type="button"
+              onClick={unlockUsernameChange}
+              className="mt-2 rounded-xl bg-amber-400 px-3 py-2 text-xs font-black uppercase tracking-wider text-slate-950"
+            >
+              Unlock Change ($0.99)
+            </button>
+          </div>
           <div className="flex items-center bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-2 focus-within:ring-2 ring-blue-500 transition-all">
             <span className="text-slate-400 font-bold px-3">@</span>
             <input 
@@ -217,7 +243,7 @@ export default function Profile() {
               placeholder="username"
               className="bg-transparent flex-1 font-bold text-slate-900 dark:text-white outline-none"
             />
-            <button onClick={saveUsername} className="px-4 py-1.5 bg-slate-100 dark:bg-slate-800 text-sm font-bold text-slate-900 dark:text-white rounded-lg hover:bg-blue-500 hover:text-white transition-colors">
+            <button onClick={saveUsername} disabled={!usernamePaymentReady} className="px-4 py-1.5 bg-slate-100 dark:bg-slate-800 text-sm font-bold text-slate-900 dark:text-white rounded-lg hover:bg-blue-500 hover:text-white transition-colors disabled:opacity-50">
               Save
             </button>
           </div>

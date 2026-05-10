@@ -2,9 +2,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { motion } from "framer-motion";
-import { BrainCircuit, CheckCircle2, Hourglass, Loader2, RefreshCw, Sparkles, Target, Zap } from "lucide-react";
+import { BrainCircuit, CheckCircle2, Crown, Hourglass, Loader2, Lock, RefreshCw, Sparkles, Target, Zap } from "lucide-react";
 import LevelCompanion from "@/components/LevelCompanion";
 import { buildLocalCoachingPlan, getWorkoutSummary } from "@/lib/progression";
+import { buildLocalPremiumAnalysis, isPremiumProfile } from "@/lib/insights";
 
 export default function Insights() {
   const [profile, setProfile] = useState(null);
@@ -14,6 +15,11 @@ export default function Insights() {
   const [loading, setLoading] = useState(true);
   const [coaching, setCoaching] = useState(false);
   const [error, setError] = useState("");
+  const [model, setModel] = useState("");
+  const [premiumAnalysis, setPremiumAnalysis] = useState(null);
+  const [premiumSource, setPremiumSource] = useState("paywall");
+  const [premiumLoading, setPremiumLoading] = useState(false);
+  const [premiumError, setPremiumError] = useState("");
 
   const summary = useMemo(() => getWorkoutSummary(workouts), [workouts]);
 
@@ -30,12 +36,41 @@ export default function Insights() {
       if (!response.ok) throw new Error(data.error || "Coach unavailable");
       setPlan(data.plan);
       setSource(data.source || "local");
+      setModel(data.model || "");
     } catch (err) {
       setError(err.message);
       setPlan(buildLocalCoachingPlan(nextWorkouts, nextProfile));
       setSource("local");
     } finally {
       setCoaching(false);
+    }
+  };
+
+  const fetchPremiumCoach = async (nextWorkouts = workouts, nextProfile = profile) => {
+    if (!isPremiumProfile(nextProfile)) {
+      setPremiumAnalysis(null);
+      setPremiumSource("paywall");
+      return;
+    }
+
+    setPremiumLoading(true);
+    setPremiumError("");
+    try {
+      const response = await fetch("/api/insights", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ workouts: nextWorkouts, profile: nextProfile, mode: "premium" }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || data.warning || "Premium coach unavailable");
+      setPremiumAnalysis(data.premiumAnalysis || buildLocalPremiumAnalysis(nextWorkouts, nextProfile, getWorkoutSummary(nextWorkouts)));
+      setPremiumSource(data.source || "local");
+    } catch (err) {
+      setPremiumError(err.message);
+      setPremiumAnalysis(buildLocalPremiumAnalysis(nextWorkouts, nextProfile, getWorkoutSummary(nextWorkouts)));
+      setPremiumSource("local");
+    } finally {
+      setPremiumLoading(false);
     }
   };
 
@@ -59,6 +94,7 @@ export default function Insights() {
       setPlan(buildLocalCoachingPlan(nextWorkouts, nextProfile));
       setLoading(false);
       fetchCoach(nextWorkouts, nextProfile);
+      fetchPremiumCoach(nextWorkouts, nextProfile);
     };
 
     load();
@@ -73,6 +109,8 @@ export default function Insights() {
   }
 
   const activePlan = plan || buildLocalCoachingPlan(workouts, profile || {});
+  const premiumLocked = !isPremiumProfile(profile);
+  const activePremiumAnalysis = premiumAnalysis || buildLocalPremiumAnalysis(workouts, profile || {}, summary);
 
   return (
     <div className="min-h-screen bg-slate-100 px-5 pb-32 pt-8 text-slate-950 dark:bg-slate-950 dark:text-white">
@@ -83,13 +121,20 @@ export default function Insights() {
             <h1 className="mt-1 text-3xl font-black tracking-tight">Next Workout</h1>
           </div>
           <button
-            onClick={() => fetchCoach()}
-            disabled={coaching}
+            onClick={() => {
+              fetchCoach();
+              fetchPremiumCoach();
+            }}
+            disabled={coaching || premiumLoading}
             className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-lg dark:bg-white dark:text-slate-950"
           >
-            {coaching ? <Hourglass className="animate-pulse" size={22} /> : <RefreshCw size={22} />}
+            {coaching || premiumLoading ? <Hourglass className="animate-pulse" size={22} /> : <RefreshCw size={22} />}
           </button>
         </header>
+        <div className="flex items-center gap-2 rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-3 py-2 text-[11px] font-black uppercase tracking-wider text-cyan-700 dark:text-cyan-300">
+          <Zap size={14} />
+          {source === "ai" ? `Powered by AI (Gemini)${model ? ` - ${model}` : ""}` : "Powered by AI (Gemini) - local fallback active"}
+        </div>
 
         <LevelCompanion totalXP={profile?.total_xp || 0} size="compact" mood="ready" characterId={profile?.avatar || "panda"} />
 
@@ -98,7 +143,7 @@ export default function Insights() {
             <div>
               <div className="mb-2 flex items-center gap-2">
                 <BrainCircuit size={18} className="text-cyan-500" />
-                <span className="text-xs font-black uppercase tracking-wider text-slate-500">{source === "ai" ? "AI generated" : "Local coach"}</span>
+                <span className="text-xs font-black uppercase tracking-wider text-slate-500">{source === "ai" ? "Gemini basic coach" : "Basic coach"}</span>
               </div>
               <h2 className="text-2xl font-black leading-tight">{activePlan.headline}</h2>
             </div>
@@ -128,6 +173,65 @@ export default function Insights() {
               </div>
             ))}
           </div>
+        </section>
+
+        <section className="rounded-2xl border border-violet-300/40 bg-violet-50 p-5 shadow-sm dark:border-violet-400/30 dark:bg-violet-500/10">
+          <div className="mb-4 flex items-start justify-between gap-4">
+            <div>
+              <div className="mb-2 flex items-center gap-2">
+                <Crown size={18} className="text-violet-500" />
+                <span className="text-xs font-black uppercase tracking-wider text-violet-700 dark:text-violet-200">Premium AI Analysis</span>
+              </div>
+              <h2 className="text-lg font-black">Personalized progression diagnostics</h2>
+              <p className="mt-1 text-xs font-bold text-violet-800/80 dark:text-violet-200/80">
+                {premiumLocked ? "Locked for free accounts" : premiumSource === "ai" ? "Generated by Gemini" : "Premium fallback analysis"}
+              </p>
+            </div>
+            <div className="rounded-full bg-violet-500/10 p-3 text-violet-500">
+              {premiumLocked ? <Lock size={20} /> : <Sparkles size={20} />}
+            </div>
+          </div>
+
+          {premiumLocked ? (
+            <div className="rounded-xl border border-dashed border-violet-400/40 bg-white/60 p-4 dark:bg-black/10">
+              <p className="text-sm font-black text-violet-900 dark:text-violet-100">Premium unlock required</p>
+              <p className="mt-2 text-xs font-bold leading-5 text-violet-800/90 dark:text-violet-200/90">
+                Unlock Gemini analysis that reviews weak points, plateau risk, recovery load, and the next metric to compare after your next workout.
+              </p>
+              <div className="mt-4 grid gap-2 text-[10px] font-black uppercase tracking-wider text-violet-700 dark:text-violet-200">
+                <span>Advanced bottleneck detection</span>
+                <span>Priority-ranked next actions</span>
+                <span>Recovery and progression risk flags</span>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {premiumError && <p className="rounded-xl bg-amber-50 p-3 text-xs font-bold text-amber-700 dark:bg-amber-400/10 dark:text-amber-300">{premiumError}</p>}
+              <p className="text-sm font-bold leading-6 text-slate-700 dark:text-slate-200">{activePremiumAnalysis.summary}</p>
+
+              <div>
+                <p className="mb-2 text-xs font-black uppercase tracking-wider text-violet-700 dark:text-violet-200">Priorities</p>
+                <div className="space-y-2">
+                  {activePremiumAnalysis.priorities.map((priority, index) => (
+                    <p key={`${priority}-${index}`} className="rounded-xl bg-white/70 p-3 text-sm font-bold leading-5 text-slate-700 dark:bg-slate-950/70 dark:text-slate-200">{priority}</p>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <p className="mb-2 text-xs font-black uppercase tracking-wider text-violet-700 dark:text-violet-200">Risk Flags</p>
+                <div className="space-y-2">
+                  {activePremiumAnalysis.risks.map((risk, index) => (
+                    <p key={`${risk}-${index}`} className="rounded-xl bg-white/70 p-3 text-sm font-bold leading-5 text-slate-700 dark:bg-slate-950/70 dark:text-slate-200">{risk}</p>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-xl bg-cyan-50 p-4 text-sm font-black leading-6 text-cyan-800 dark:bg-cyan-400/10 dark:text-cyan-200">
+                Next check-in: {activePremiumAnalysis.nextCheckIn}
+              </div>
+            </div>
+          )}
         </section>
 
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-slate-900">

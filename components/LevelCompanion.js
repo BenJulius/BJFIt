@@ -56,15 +56,15 @@ export default function LevelCompanion({
       </div>
 
       <motion.div
-        animate={{ y: [0, -6, 0] }}
-        transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
+        animate={{ rotate: [-1.2, 1.2, -1.2], x: [-2, 2, -2], scale: [1, 1.01, 1] }}
+        transition={{ duration: 3.6, repeat: Infinity, ease: "easeInOut" }}
         className={`absolute left-1/2 ${compact ? "bottom-2 w-36" : "bottom-3 w-52"} -translate-x-1/2`}
       >
         {!imageModeFailed && (
           <img
             src={visuals.body}
             alt={`${character.name} body`}
-            className="h-full w-full object-contain drop-shadow-2xl"
+            className="h-full w-full object-contain drop-shadow-2xl mix-blend-luminosity saturate-110 contrast-110"
             onError={() => setImageModeFailed(true)}
           />
         )}
@@ -184,6 +184,16 @@ export default function LevelCompanion({
       </motion.div>
 
       <div className="absolute inset-x-4 bottom-4 z-20">
+        {!imageModeFailed && (
+          <div className="mb-2 rounded-xl border border-white/10 bg-black/30 p-1.5">
+            <div className="relative h-10 overflow-hidden rounded-lg">
+              <img src={`/characters/${characterId}/body-max.png`} alt={`${character.name} max form`} className="absolute inset-0 h-full w-full object-contain opacity-25 grayscale" />
+              <div className="absolute inset-y-0 left-0 overflow-hidden" style={{ width: `${progressPercent}%` }}>
+                <img src={visuals.body} alt={`${character.name} current form`} className="h-full w-full object-contain" />
+              </div>
+            </div>
+          </div>
+        )}
         <div className="mb-1 flex justify-between text-[10px] font-black uppercase tracking-wider text-white/70">
           <span>{character.rank}</span>
           <span>{progressPercent}% max</span>
