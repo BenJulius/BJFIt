@@ -81,7 +81,48 @@ export default function Login() {
       window.google.accounts.id.prompt();
       return;
     }
-    alert("Google Sign-In is not configured on this environment yet. Please set NEXT_PUBLIC_GOOGLE_CLIENT_ID.");
+    if (!googleClientId) {
+      alert("Google Sign-In is not configured on this environment yet. Please set NEXT_PUBLIC_GOOGLE_CLIENT_ID.");
+      return;
+    }
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        skipBrowserRedirect: true,
+        redirectTo: `${window.location.origin}/dashboard`,
+        queryParams: { prompt: "select_account" },
+      },
+    });
+    if (error || !data?.url) {
+      alert(error?.message || "Google Sign-In is still loading. Please wait a second and tap again.");
+      return;
+    }
+    const popup = window.open(
+      data.url,
+      "google-oauth",
+      "width=520,height=680,menubar=no,toolbar=no,status=no,scrollbars=yes,resizable=yes"
+    );
+    if (!popup) {
+      alert("Popup was blocked by the browser. Please allow popups and try again.");
+      return;
+    }
+
+    setAuthing(true);
+    const started = Date.now();
+    const timer = window.setInterval(async () => {
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (sessionData?.session) {
+        window.clearInterval(timer);
+        popup.close();
+        setAuthing(false);
+        router.replace("/dashboard");
+        return;
+      }
+      if (popup.closed || Date.now() - started > 120000) {
+        window.clearInterval(timer);
+        setAuthing(false);
+      }
+    }, 800);
   };
 
   return (

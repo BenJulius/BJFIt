@@ -8,7 +8,7 @@ import AvatarPicker from "@/components/AvatarPicker";
 import LevelCompanion from "@/components/LevelCompanion";
 import CharacterPortrait from "@/components/CharacterPortrait";
 import { getCharacterLevel, getCharacterShop, MAX_CHARACTER_LEVEL, SHOP_CATEGORIES } from "@/lib/characters";
-import { getCharacterProgress, getCharacterState, initializeCharacterProgress, purchaseUpgrade } from "@/lib/characterProgress";
+import { awardAdTokens, getCharacterProgress, getCharacterState, initializeCharacterProgress, purchaseUpgrade } from "@/lib/characterProgress";
 import InstallPrompt from "@/components/InstallPrompt";
 import NotificationManager from "@/components/NotificationManager";
 
@@ -19,6 +19,7 @@ export default function Profile() {
   const [shopMessage, setShopMessage] = useState("");
   const [shopCategory, setShopCategory] = useState("tops");
   const [selectedShopItem, setSelectedShopItem] = useState(null);
+  const [showMaxPreview, setShowMaxPreview] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showStats, setShowStats] = useState(false);
   
@@ -29,6 +30,7 @@ export default function Profile() {
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({ age: "", weight: "", goal: "", avatar: "panda" });
   const [savingProfile, setSavingProfile] = useState(false);
+  const [activeTab, setActiveTab] = useState("overview");
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -101,6 +103,13 @@ export default function Profile() {
     setShopMessage(result.ok ? "Character updated." : result.reason);
   };
 
+  const handleWatchAd = () => {
+    if (!userId) return;
+    const next = awardAdTokens(userId, 3);
+    setCharacterState(next);
+    setShopMessage("Ad reward claimed: +3 tokens.");
+  };
+
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     window.location.href = "/";
@@ -126,11 +135,34 @@ export default function Profile() {
   const categoryItems = shop[shopCategory] || [];
   const previewItem = selectedShopItem || categoryItems[0];
   const previewEquipped = previewItem ? [...new Set([...progress.equipped, previewItem.id])] : progress.equipped;
+  const previewXP = showMaxPreview ? MAX_CHARACTER_LEVEL : progress.xp;
   const previewOwned = previewItem ? progress.owned.includes(previewItem.id) : false;
   const previewEquippedAlready = previewItem ? progress.equipped.includes(previewItem.id) : false;
 
   return (
-    <div className="p-6 pt-12 pb-32 max-w-md mx-auto bg-slate-50 dark:bg-slate-950 min-h-screen transition-colors">
+    <div className="p-5 pt-10 pb-32 max-w-md mx-auto bg-slate-50 dark:bg-slate-950 min-h-screen transition-colors">
+      <div className="mb-4 grid grid-cols-3 gap-2 rounded-2xl bg-slate-200/70 p-1 dark:bg-slate-900/80">
+        {[
+          { id: "overview", label: "Overview" },
+          { id: "locker", label: "Locker" },
+          { id: "account", label: "Account" },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => setActiveTab(tab.id)}
+            className={`rounded-xl px-2 py-2 text-[11px] font-black uppercase tracking-wider ${
+              activeTab === tab.id
+                ? "bg-slate-950 text-white dark:bg-white dark:text-slate-950"
+                : "text-slate-600 dark:text-slate-300"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === "overview" && (
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center gap-4 mb-8">
         <div className="w-full rounded-3xl border border-slate-200 bg-white p-4 dark:border-white/5 dark:bg-slate-900">
           <div className="flex items-center gap-3">
@@ -146,7 +178,7 @@ export default function Profile() {
           totalXP={profile.total_xp || 0}
           size="compact"
           characterId={activeCharacterId}
-          characterXP={progress.xp}
+          characterXP={previewXP}
           equipped={progress.equipped}
         />
         
@@ -168,8 +200,10 @@ export default function Profile() {
           {usernameSuccess && <p className="text-xs font-bold text-emerald-500 flex items-center gap-1"><CheckCircle2 size={12}/> {usernameSuccess}</p>}
         </div>
       </motion.div>
+      )}
 
-      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="mb-6 bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-white/5 shadow-xl space-y-5">
+      {activeTab === "locker" && (
+      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="mb-6 bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200 dark:border-white/5 shadow-xl space-y-5">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-black text-slate-900 dark:text-white">Character Shop</h2>
@@ -178,6 +212,22 @@ export default function Profile() {
           <div className="flex items-center gap-2 rounded-full bg-amber-400/15 px-3 py-1 text-sm font-black text-amber-600 dark:text-amber-300">
             <Coins size={16} /> {characterState?.tokens || 0}
           </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowMaxPreview((v) => !v)}
+            className={`rounded-xl px-3 py-2 text-xs font-black uppercase tracking-wider ${showMaxPreview ? "bg-cyan-400 text-slate-950" : "bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-200"}`}
+          >
+            {showMaxPreview ? "Viewing Max Form" : "Preview Max Form"}
+          </button>
+          <button
+            type="button"
+            onClick={handleWatchAd}
+            className="rounded-xl bg-emerald-400 px-3 py-2 text-xs font-black uppercase tracking-wider text-slate-950"
+          >
+            Watch Ad +3 Tokens
+          </button>
         </div>
 
         <div className="rounded-2xl bg-slate-50 p-4 dark:bg-slate-950">
@@ -213,7 +263,7 @@ export default function Profile() {
                 totalXP={profile.total_xp || 0}
                 size="compact"
                 characterId={activeCharacterId}
-                characterXP={progress.xp}
+                characterXP={previewXP}
                 equipped={previewEquipped}
               />
               {!previewOwned && <div className="absolute inset-0 flex items-center justify-center bg-slate-950/55 text-xs font-black uppercase text-white">Locked</div>}
@@ -250,7 +300,7 @@ export default function Profile() {
                     totalXP={profile.total_xp || 0}
                     size="compact"
                     characterId={activeCharacterId}
-                    characterXP={progress.xp}
+                    characterXP={previewXP}
                     equipped={tileEquipped}
                   />
                   <div className="absolute left-1 top-1">
@@ -265,12 +315,16 @@ export default function Profile() {
         </div>
         {shopMessage && <p className="text-xs font-bold text-emerald-500">{shopMessage}</p>}
       </motion.div>
+      )}
 
+      {activeTab === "overview" && (
       <div className="mb-6 space-y-3">
         <NotificationManager />
         <InstallPrompt />
       </div>
+      )}
 
+      {activeTab === "account" && (
       <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-white/5 shadow-xl space-y-6">
         <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-4">
           <h2 className="text-lg font-black text-slate-900 dark:text-white">Account Details</h2>
@@ -351,7 +405,9 @@ export default function Profile() {
           )}
         </AnimatePresence>
       </motion.div>
+      )}
 
+      {activeTab === "account" && (
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mt-8 space-y-3">
         <button onClick={handleSignOut} className="w-full flex items-center justify-center gap-2 p-4 bg-slate-200 dark:bg-slate-800 text-slate-900 dark:text-white font-bold rounded-2xl hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors">
           <LogOut size={18} /> Log Out
@@ -360,6 +416,7 @@ export default function Profile() {
           <Trash2 size={18} /> Delete Account
         </button>
       </motion.div>
+      )}
     </div>
   );
 }

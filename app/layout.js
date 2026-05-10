@@ -5,6 +5,11 @@ export const metadata = {
   title: "BJ Fit",
   applicationName: "BJ Fit",
   manifest: "/manifest.json",
+  icons: {
+    icon: "/icon.png",
+    apple: "/icon.png",
+    shortcut: "/icon.png",
+  },
 }
 
 export const viewport = {
