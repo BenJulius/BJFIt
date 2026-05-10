@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 import { buildLocalCoachingPlan, getWorkoutSummary, groupWorkoutsByExercise } from "@/lib/progression";
 import { buildLocalPremiumAnalysis, isPremiumProfile, normalizePremiumAnalysis } from "@/lib/insights";
 
@@ -31,18 +32,40 @@ function normalizePlan(plan, fallback) {
 
 export async function POST(req) {
   try {
-    const { workouts = [], profile = {}, mode = "basic" } = await req.json();
-    const fallback = buildLocalCoachingPlan(workouts, profile);
+    const { mode = "basic" } = await req.json();
+    const authHeader = req.headers.get("authorization") || "";
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      { global: { headers: { Authorization: `Bearer ${token}` } } }
+    );
+
+    const { data: userData, error: userError } = await supabase.auth.getUser(token);
+    const user = userData?.user;
+    if (userError || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const [{ data: profile }, { data: workouts }] = await Promise.all([
+      supabase.from("profiles").select("*").eq("id", user.id).single(),
+      supabase.from("workouts").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(40),
+    ]);
+
+    const safeProfile = profile || {};
+    const safeWorkouts = workouts || [];
+
+    const fallback = buildLocalCoachingPlan(safeWorkouts, safeProfile);
     const premiumRequested = mode === "premium";
-    const isPremium = isPremiumProfile(profile);
-    const summary = getWorkoutSummary(workouts);
-    const premiumFallback = buildLocalPremiumAnalysis(workouts, profile, summary);
+    const isPremium = isPremiumProfile(safeProfile);
+    const summary = getWorkoutSummary(safeWorkouts);
+    const premiumFallback = buildLocalPremiumAnalysis(safeWorkouts, safeProfile, summary);
 
     if (premiumRequested && !isPremium) {
       return NextResponse.json({ gated: true, source: "paywall" }, { status: 402 });
     }
 
-    if (!workouts.length) {
+    if (!safeWorkouts.length) {
       return premiumRequested
         ? NextResponse.json({ premiumAnalysis: premiumFallback, source: "local" })
         : NextResponse.json({ plan: fallback, source: "local" });
@@ -54,7 +77,7 @@ export async function POST(req) {
         : NextResponse.json({ plan: fallback, source: "local" });
     }
 
-    const exerciseGroups = Object.entries(groupWorkoutsByExercise(workouts)).map(([exercise, sets]) => ({
+    const exerciseGroups = Object.entries(groupWorkoutsByExercise(safeWorkouts)).map(([exercise, sets]) => ({
       exercise,
       sets: sets.slice(0, 8).map((set) => ({
         reps: Number(set.reps || 0),
@@ -75,7 +98,7 @@ Return only valid JSON matching this shape:
 }
 Use conservative progression. Do not suggest unsafe max attempts. Prefer the user's logged exercises when possible.
 
-Profile: ${JSON.stringify({ goal: profile.goal, age: profile.age, weight: profile.weight })}
+Profile: ${JSON.stringify({ goal: safeProfile.goal, age: safeProfile.age, weight: safeProfile.weight })}
 Summary: ${JSON.stringify(summary)}
 Recent training by exercise: ${JSON.stringify(exerciseGroups)}`;
 
@@ -89,7 +112,7 @@ Return only valid JSON matching this shape:
 }
 Be specific and useful. Use conservative progression. Do not provide medical advice or unsafe max-attempt instructions.
 
-Profile: ${JSON.stringify({ goal: profile.goal, age: profile.age, weight: profile.weight, tier: profile.tier })}
+Profile: ${JSON.stringify({ goal: safeProfile.goal, age: safeProfile.age, weight: safeProfile.weight, tier: safeProfile.tier })}
 Summary: ${JSON.stringify(summary)}
 Recent training by exercise: ${JSON.stringify(exerciseGroups)}`;
 

@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Script from "next/script";
 import { supabase } from "@/lib/supabase";
-import { ArrowRight, Download, Smartphone, Sparkles } from "lucide-react";
+import { ArrowRight, Download, Mail, ShieldCheck, Smartphone, Sparkles } from "lucide-react";
 import { isAppRuntime } from "@/lib/runtimeMode";
 
 export default function HomePage() {
@@ -62,20 +62,33 @@ export default function HomePage() {
     return (
       <div className="min-h-screen bg-slate-950 text-white">
         <div className="mx-auto max-w-md p-6 pb-16">
-          <div className="rounded-3xl border border-white/10 bg-slate-900/70 p-5">
+          <div className="rounded-3xl border border-white/10 bg-slate-900/70 p-5 shadow-2xl">
             <div className="flex items-center gap-3">
               <img src="/icon.png" alt="BJ Fit" className="h-14 w-14 rounded-2xl" />
               <div>
-                <p className="text-xs font-black uppercase tracking-widest text-cyan-300">BJ Fit App</p>
-                <h1 className="text-3xl font-black">Train In-App</h1>
+                <p className="text-xs font-black uppercase tracking-widest text-cyan-300">BJ Fit Showcase</p>
+                <h1 className="text-3xl font-black">Install to train</h1>
               </div>
             </div>
-            <p className="mt-4 text-sm font-semibold text-slate-300">BJ Fit is app-first. Download to access workout logging, character progression, and AI coaching.</p>
+            <p className="mt-4 text-sm font-semibold leading-6 text-slate-300">The web page is a preview only. Workout logging, character progression, and AI coaching open in app mode so the experience feels native and focused.</p>
+            <div className="mt-4 grid grid-cols-3 gap-2">
+              {["AI coach", "Daily quests", "Character shop"].map((label) => (
+                <div key={label} className="rounded-xl bg-slate-950 px-3 py-2 text-center text-[10px] font-black uppercase tracking-wider text-slate-400">
+                  {label}
+                </div>
+              ))}
+            </div>
           </div>
 
-          <div className="mt-4 grid gap-3">
-            <img src="/characters/lion/body-elite.png" alt="app preview 1" className="h-44 w-full rounded-2xl border border-white/10 bg-slate-900 object-contain p-2" />
-            <img src="/characters/shark/body-advanced.png" alt="app preview 2" className="h-44 w-full rounded-2xl border border-white/10 bg-slate-900 object-contain p-2" />
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <div className="rounded-2xl border border-white/10 bg-slate-900 p-3">
+              <img src="/characters/lion/body-elite.png" alt="Lion character preview" className="h-40 w-full rounded-xl bg-slate-950 object-contain p-2" />
+              <p className="mt-2 text-xs font-black uppercase tracking-wider text-slate-400">Elite forms</p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-slate-900 p-3">
+              <img src="/characters/shark/body-advanced.png" alt="Shark character preview" className="h-40 w-full rounded-xl bg-slate-950 object-contain p-2" />
+              <p className="mt-2 text-xs font-black uppercase tracking-wider text-slate-400">Locker drops</p>
+            </div>
           </div>
 
           <div className="mt-5 grid gap-3">
@@ -86,7 +99,7 @@ export default function HomePage() {
               <Smartphone size={18} /> Download on App Store
             </a>
             <a href="/?app=1" className="flex items-center justify-center gap-2 rounded-2xl border border-cyan-400/50 bg-cyan-400/10 px-4 py-4 font-black text-cyan-200">
-              <Sparkles size={18} /> Enter Android Test Mode
+              <Sparkles size={18} /> Enter App Preview Mode
             </a>
           </div>
         </div>
@@ -98,33 +111,39 @@ export default function HomePage() {
     <div className="min-h-screen bg-slate-950 p-5 text-white">
       {googleClientId && <Script src="https://accounts.google.com/gsi/client" strategy="afterInteractive" />}
       <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-4">
-        <section className="rounded-3xl border border-white/10 bg-slate-900/65 p-6">
+        <section className="rounded-3xl border border-white/10 bg-slate-900/65 p-6 shadow-2xl">
           <div className="flex items-center gap-4">
             <img src="/icon.png" alt="BJ Fit icon" className="h-16 w-16 rounded-2xl border border-white/15" />
             <div>
               <p className="text-[11px] font-black uppercase tracking-widest text-cyan-300">Welcome</p>
               <h1 className="text-4xl font-black tracking-tight text-white">BJ Fit</h1>
+              <p className="mt-1 text-xs font-bold text-slate-400">Choose a secure sign-in method.</p>
             </div>
           </div>
         </section>
 
         <section className="rounded-3xl border border-slate-800 bg-slate-900/55 p-6">
-          <button onClick={handleGoogleLogin} className="w-full rounded-2xl bg-white py-4 font-black text-black">
-            {authing ? "Signing in..." : "Continue with Google"}
+          <button onClick={handleGoogleLogin} disabled={authing || busy} className="flex w-full items-center justify-center gap-3 rounded-2xl bg-white py-4 font-black text-black disabled:opacity-60">
+            <ShieldCheck size={18} />
+            {authing ? "Opening Google..." : "Continue with Google"}
           </button>
 
           <div className="my-4 text-center text-xs font-black uppercase tracking-wider text-slate-500">or</div>
           <form onSubmit={handleEmailAuth} className="space-y-3">
-            <input value={email} onChange={(e) => setEmail(e.target.value)} className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 font-bold" placeholder="Email" type="email" required />
-            <input value={password} onChange={(e) => setPassword(e.target.value)} className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 font-bold" placeholder="Password" type="password" required />
-            <button disabled={busy} className="w-full rounded-xl bg-emerald-400 py-3 font-black text-slate-950">
+            <div className="flex items-center gap-3 rounded-xl border border-slate-700 bg-slate-950 px-3 py-3">
+              <Mail size={18} className="text-slate-500" />
+              <input value={email} onChange={(e) => setEmail(e.target.value)} className="min-w-0 flex-1 bg-transparent font-bold outline-none" placeholder="Email" type="email" required />
+            </div>
+            <input value={password} onChange={(e) => setPassword(e.target.value)} className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 font-bold outline-none focus:border-emerald-400" placeholder="Password" type="password" required />
+            <button disabled={busy || authing} className="w-full rounded-xl bg-emerald-400 py-3 font-black text-slate-950 disabled:opacity-60">
               {busy ? "Processing..." : isLogin ? "Sign In with Email" : "Create Account with Email"}
             </button>
           </form>
           <button onClick={() => setIsLogin((v) => !v)} className="mt-3 w-full text-center text-sm font-bold text-cyan-300">
             {isLogin ? "Need an account? Sign up" : "Already have an account? Sign in"}
           </button>
-          {message && <p className="mt-3 text-center text-xs font-bold text-red-400">{message}</p>}
+          {message && <p className="mt-3 rounded-xl bg-red-400/10 p-3 text-center text-xs font-bold text-red-300">{message}</p>}
+          <p className="mt-4 text-center text-[10px] font-bold uppercase tracking-wider text-slate-500">Google OAuth and email auth are handled by Supabase.</p>
         </section>
 
         <p className="text-center text-[10px] font-bold text-slate-500">
@@ -134,4 +153,3 @@ export default function HomePage() {
     </div>
   );
 }
-

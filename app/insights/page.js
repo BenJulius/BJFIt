@@ -1,8 +1,9 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { motion } from "framer-motion";
-import { BrainCircuit, CheckCircle2, Crown, Hourglass, Loader2, Lock, RefreshCw, Sparkles, Target, Zap } from "lucide-react";
+import { ArrowRight, BrainCircuit, CheckCircle2, Crown, Hourglass, Loader2, Lock, RefreshCw, Sparkles, Target, Zap } from "lucide-react";
 import LevelCompanion from "@/components/LevelCompanion";
 import { buildLocalCoachingPlan, getWorkoutSummary } from "@/lib/progression";
 import { buildLocalPremiumAnalysis, isPremiumProfile } from "@/lib/insights";
@@ -29,10 +30,14 @@ export default function Insights() {
     setCoaching(true);
     setError("");
     try {
+      const { data: { session } } = await supabase.auth.getSession();
       const response = await fetch("/api/insights", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ workouts: nextWorkouts, profile: nextProfile }),
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: session?.access_token ? `Bearer ${session.access_token}` : "",
+        },
+        body: JSON.stringify({}),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Coach unavailable");
@@ -58,10 +63,14 @@ export default function Insights() {
     setPremiumLoading(true);
     setPremiumError("");
     try {
+      const { data: { session } } = await supabase.auth.getSession();
       const response = await fetch("/api/insights", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ workouts: nextWorkouts, profile: nextProfile, mode: "premium" }),
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: session?.access_token ? `Bearer ${session.access_token}` : "",
+        },
+        body: JSON.stringify({ mode: "premium" }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || data.warning || "Premium coach unavailable");
@@ -228,11 +237,21 @@ export default function Insights() {
               <p className="mt-2 text-xs font-bold leading-5 text-violet-800/90 dark:text-violet-200/90">
                 Unlock Gemini analysis that reviews weak points, plateau risk, recovery load, and the next metric to compare after your next workout.
               </p>
-              <div className="mt-4 grid gap-2 text-[10px] font-black uppercase tracking-wider text-violet-700 dark:text-violet-200">
-                <span>Advanced bottleneck detection</span>
-                <span>Priority-ranked next actions</span>
-                <span>Recovery and progression risk flags</span>
+              <div className="mt-4 grid gap-2">
+                {[
+                  "Advanced bottleneck detection",
+                  "Priority-ranked next actions",
+                  "Recovery and progression risk flags",
+                ].map((item) => (
+                  <div key={item} className="flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-violet-700 dark:text-violet-200">
+                    <CheckCircle2 size={14} className="text-emerald-500" />
+                    <span>{item}</span>
+                  </div>
+                ))}
               </div>
+              <Link href="/profile" className="mt-5 flex items-center justify-between rounded-xl bg-violet-600 px-4 py-3 text-sm font-black text-white shadow-lg shadow-violet-500/20">
+                Review premium options <ArrowRight size={18} />
+              </Link>
             </div>
           ) : (
             <div className="space-y-4">

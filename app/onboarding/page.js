@@ -16,7 +16,7 @@ export default function Onboarding() {
   const [suggestions, setSuggestions] = useState([])
   const [validationError, setValidationError] = useState("")
   const router = useRouter()
-  const stepLabels = ["Stats", "Weight", "Goal", "Handle", "Character", "Premium", "Review"]
+  const stepLabels = ["Character", "Goal", "Stats", "Weight", "Handle", "Premium", "Review"]
   const progressPercent = Math.round((step / stepLabels.length) * 100)
 
   useEffect(() => {
@@ -34,9 +34,9 @@ export default function Onboarding() {
 
   const nextStep = () => {
     setValidationError("")
-    if (step === 1 && !formData.age) return setValidationError("Age is required to build your profile.")
-    if (step === 2 && !formData.weight) return setValidationError("Weight is required for accurate tracking.")
-    if (step === 3 && !formData.goal) return setValidationError("Please select a goal.")
+    if (step === 2 && !formData.goal) return setValidationError("Please select a goal.")
+    if (step === 3 && !formData.age) return setValidationError("Age is required to build your profile.")
+    if (step === 4 && !formData.weight) return setValidationError("Weight is required for accurate tracking.")
     setStep(prev => prev + 1)
   }
 
@@ -59,10 +59,10 @@ export default function Onboarding() {
       setValidationError("That handle is already taken.")
       return
     }
-    setStep(5) // Move to Avatar Step
+    setStep(6)
   }
 
-  const finishSignup = async (tier) => {
+  const finishSignup = async () => {
     setLoading(true)
     const { data: { user } } = await supabase.auth.getUser()
     
@@ -74,7 +74,8 @@ export default function Onboarding() {
         goal: formData.goal,
         username: formData.username,
         avatar: formData.avatar, // Saving the new avatar!
-        tier: tier 
+        // Tier is server-owned. Client onboarding always starts as free.
+        tier: "free"
       })
 
       if (error) {
@@ -91,7 +92,7 @@ export default function Onboarding() {
   return (
     <div className="flex flex-col h-screen p-6 justify-center max-w-md mx-auto bg-slate-950">
       <div className="flex justify-center mb-8">
-        <AnimatedPanda message={step === 7 ? "Looking sharp, Athlete!" : "Let's build your perfect plan!"} />
+        <AnimatedPanda message={step === 1 ? "Pick your training character!" : step === 7 ? "Looking sharp, Athlete!" : "Let's build your perfect plan!"} />
       </div>
 
       <motion.div key={step} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="glass-panel p-6 bg-slate-900 border border-slate-800 rounded-3xl shadow-xl relative">
@@ -118,19 +119,14 @@ export default function Onboarding() {
         <AnimatePresence mode="wait">
           {step === 1 && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-              <h2 className="text-2xl font-bold text-white text-center">How old are you?</h2>
-              <input type="number" className="w-full p-4 bg-slate-950 border border-slate-700 rounded-xl focus:border-emerald-500 text-white font-bold text-center outline-none" placeholder="Years" value={formData.age} onChange={(e) => setFormData({...formData, age: e.target.value})} />
+              <AvatarPicker
+                selectedAvatar={formData.avatar}
+                onSelect={(id) => setFormData({...formData, avatar: id})}
+              />
             </motion.div>
           )}
 
           {step === 2 && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-              <h2 className="text-2xl font-bold text-white text-center">Current weight?</h2>
-              <input type="number" className="w-full p-4 bg-slate-950 border border-slate-700 rounded-xl focus:border-emerald-500 text-white font-bold text-center outline-none" placeholder="lbs" value={formData.weight} onChange={(e) => setFormData({...formData, weight: e.target.value})} />
-            </motion.div>
-          )}
-
-          {step === 3 && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
               <h2 className="text-2xl font-bold text-white text-center">Primary Goal?</h2>
               <select className="w-full p-4 bg-slate-950 border border-slate-700 rounded-xl text-white font-bold outline-none cursor-pointer" value={formData.goal} onChange={(e) => setFormData({...formData, goal: e.target.value})}>
@@ -146,7 +142,21 @@ export default function Onboarding() {
             </motion.div>
           )}
 
+          {step === 3 && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+              <h2 className="text-2xl font-bold text-white text-center">How old are you?</h2>
+              <input type="number" className="w-full p-4 bg-slate-950 border border-slate-700 rounded-xl focus:border-emerald-500 text-white font-bold text-center outline-none" placeholder="Years" value={formData.age} onChange={(e) => setFormData({...formData, age: e.target.value})} />
+            </motion.div>
+          )}
+
           {step === 4 && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+              <h2 className="text-2xl font-bold text-white text-center">Current weight?</h2>
+              <input type="number" className="w-full p-4 bg-slate-950 border border-slate-700 rounded-xl focus:border-emerald-500 text-white font-bold text-center outline-none" placeholder="lbs" value={formData.weight} onChange={(e) => setFormData({...formData, weight: e.target.value})} />
+            </motion.div>
+          )}
+
+          {step === 5 && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
               <h2 className="text-2xl font-bold text-white text-center">Claim your Handle</h2>
               <div className="flex items-center bg-slate-950 border border-slate-700 rounded-xl p-3 focus-within:border-emerald-500">
@@ -158,15 +168,6 @@ export default function Onboarding() {
                   <button key={i} type="button" onClick={() => setFormData({...formData, username: sug})} className="px-3 py-1.5 bg-emerald-500/10 text-emerald-400 text-xs font-bold rounded-lg border border-emerald-500/20">@{sug}</button>
                 ))}
               </div>
-            </motion.div>
-          )}
-
-          {step === 5 && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-              <AvatarPicker 
-                selectedAvatar={formData.avatar} 
-                onSelect={(id) => setFormData({...formData, avatar: id})} 
-              />
             </motion.div>
           )}
 
@@ -215,24 +216,21 @@ export default function Onboarding() {
         )}
 
         <div className="mt-8">
-          {step < 4 && (
+          {step < 5 && (
             <button onClick={nextStep} className="w-full py-4 bg-white text-black font-black rounded-xl hover:bg-slate-200 active:scale-95 transition-all">Continue</button>
           )}
-          {step === 4 && (
-            <button onClick={handleUsernameStep} disabled={checkingUsername} className="w-full py-4 bg-white text-black font-black rounded-xl hover:bg-slate-200 active:scale-95 transition-all disabled:opacity-50">{checkingUsername ? "Verifying..." : "Continue"}</button>
-          )}
           {step === 5 && (
-            <button onClick={() => setStep(6)} className="w-full py-4 bg-white text-black font-black rounded-xl hover:bg-slate-200 active:scale-95 transition-all">Continue</button>
+            <button onClick={handleUsernameStep} disabled={checkingUsername} className="w-full py-4 bg-white text-black font-black rounded-xl hover:bg-slate-200 active:scale-95 transition-all disabled:opacity-50">{checkingUsername ? "Verifying..." : "Continue"}</button>
           )}
           {step === 6 && (
             <button onClick={() => setStep(7)} className="w-full py-4 bg-white text-black font-black rounded-xl hover:bg-slate-200 active:scale-95 transition-all">Review Profile</button>
           )}
           {step === 7 && (
             <div className="w-full flex flex-col gap-4">
-              <button onClick={() => finishSignup("premium")} disabled={loading} className="w-full py-4 bg-gradient-to-r from-purple-600 to-pink-500 text-white font-black rounded-xl shadow-lg shadow-purple-500/25 active:scale-95 transition-all flex items-center justify-center gap-2">
-                {loading ? "Saving..." : <><UserCheck size={20} /> Join as Premium</>}
+              <button onClick={() => finishSignup()} disabled={loading} className="w-full py-4 bg-gradient-to-r from-blue-600 to-emerald-500 text-white font-black rounded-xl shadow-lg shadow-blue-500/25 active:scale-95 transition-all flex items-center justify-center gap-2">
+                {loading ? "Saving..." : <><UserCheck size={20} /> Complete Setup</>}
               </button>
-              <button onClick={() => finishSignup("free")} disabled={loading} className="text-xs text-slate-500 font-bold hover:text-white text-center transition-colors">Setup Free Account</button>
+              <p className="text-center text-xs font-bold text-slate-500">Premium unlock is managed securely after account creation.</p>
             </div>
           )}
         </div>

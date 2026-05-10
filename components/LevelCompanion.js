@@ -40,8 +40,9 @@ export default function LevelCompanion({
   const [imageModeFailed, setImageModeFailed] = useState(false);
 
   return (
-    <div className={`relative ${shellSize} w-full overflow-hidden rounded-2xl border border-slate-200 bg-slate-950 text-white shadow-xl dark:border-white/10`}>
-      <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${character.accent}55, #020617 58%, ${character.dark}55)` }} />
+    <div className={`character-stage relative ${shellSize} w-full overflow-hidden rounded-2xl border border-slate-200 bg-slate-950 text-white shadow-xl dark:border-white/10`}>
+      <div className="absolute inset-0 bg-slate-950" />
+      <div className="absolute inset-0" style={{ background: `radial-gradient(circle at 50% 35%, ${character.accent}30, transparent 34%), linear-gradient(135deg, ${character.accent}55, #020617 58%, ${character.dark}55)` }} />
       {hasAura && <motion.div animate={{ opacity: [0.2, 0.55, 0.2], scale: [0.96, 1.06, 0.96] }} transition={{ repeat: Infinity, duration: 2.2 }} className="absolute inset-8 rounded-full blur-2xl" style={{ backgroundColor: auraItem?.color || character.accent }} />}
       <div className="absolute inset-x-6 bottom-5 h-12 rounded-full bg-black/30 blur-xl" />
 
@@ -61,12 +62,15 @@ export default function LevelCompanion({
         className={`absolute left-1/2 ${compact ? "bottom-2 w-36" : "bottom-3 w-52"} -translate-x-1/2`}
       >
         {!imageModeFailed && (
+          <div className="relative">
+          <div className="absolute inset-x-8 bottom-4 top-8 rounded-full" style={{ background: `radial-gradient(circle, ${character.accent}1f, transparent 66%)` }} />
           <img
             src={visuals.body}
             alt={`${character.name} body`}
-            className="h-full w-full object-contain drop-shadow-2xl mix-blend-luminosity saturate-110 contrast-110"
+            className="relative h-full w-full object-contain drop-shadow-2xl"
             onError={() => setImageModeFailed(true)}
           />
+          </div>
         )}
         {imageModeFailed && (
         <svg viewBox="0 0 200 240" className="h-full w-full drop-shadow-2xl" role="img" aria-label={`${character.name} training companion`}>
@@ -187,9 +191,9 @@ export default function LevelCompanion({
         {!imageModeFailed && (
           <div className="mb-2 rounded-xl border border-white/10 bg-black/30 p-1.5">
             <div className="relative h-10 overflow-hidden rounded-lg">
-              <img src={`/characters/${characterId}/body-max.png`} alt={`${character.name} max form`} className="absolute inset-0 h-full w-full object-contain opacity-25 grayscale" />
+              <img src={`/characters/${characterId}/body-max.png`} alt={`${character.name} max form`} className="absolute inset-0 h-full w-full object-contain opacity-25 grayscale" onError={(event) => { event.currentTarget.style.display = "none"; }} />
               <div className="absolute inset-y-0 left-0 overflow-hidden" style={{ width: `${progressPercent}%` }}>
-                <img src={visuals.body} alt={`${character.name} current form`} className="h-full w-full object-contain" />
+                <img src={visuals.body} alt={`${character.name} current form`} className="h-full w-full object-contain" onError={(event) => { event.currentTarget.style.display = "none"; }} />
               </div>
             </div>
           </div>

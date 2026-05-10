@@ -90,12 +90,14 @@ export default function Profile() {
   };
 
   const unlockUsernameChange = () => {
-    const link = process.env.NEXT_PUBLIC_USERNAME_CHANGE_PAYMENT_LINK;
+    setUsernameError("");
+    const link = process.env.NEXT_PUBLIC_USERNAME_CHANGE_PAYMENT_LINK || "";
     if (link) {
       window.open(link, "_blank", "noopener,noreferrer");
+      setUsernameSuccess("Complete payment, then your unlock will be applied automatically.");
+      return;
     }
-    setUsernamePaymentReady(true);
-    setUsernameSuccess("Unlock activated. You can submit one username change.");
+    setUsernameError("Payment provider not configured yet for username changes.");
   };
 
   const saveProfileDetails = async () => {
@@ -149,6 +151,7 @@ export default function Profile() {
     if (confirmed) {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
+        await supabase.from('workouts').delete().eq('user_id', session.user.id);
         await supabase.from('profiles').delete().eq('id', session.user.id);
         await supabase.auth.signOut();
         window.location.href = "/";
