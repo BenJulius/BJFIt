@@ -78,10 +78,6 @@ export default function Login() {
 
   const handleGoogleLogin = async () => {
     setAuthMessage("");
-    if (!googleClientId) {
-      setAuthMessage("Google Sign-In is not configured yet. NEXT_PUBLIC_GOOGLE_CLIENT_ID is missing.");
-      return;
-    }
     setAuthing(true);
     setAuthMessage("Opening Google Sign-In...");
     try {
