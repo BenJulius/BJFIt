@@ -5,6 +5,7 @@ import { Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import BottomNav from "@/components/BottomNav";
 import RewardToasts from "@/components/RewardToasts";
+import { isAppRuntime } from "@/lib/runtimeMode";
 
 const PUBLIC_PATHS = new Set(["/", "/login", "/onboarding", "/terms", "/privacy", "/data-deletion"]);
 
@@ -13,9 +14,11 @@ export default function AppShell({ children }) {
   const router = useRouter();
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [appRuntime, setAppRuntime] = useState(false);
   const isPublic = useMemo(() => PUBLIC_PATHS.has(pathname), [pathname]);
 
   useEffect(() => {
+    setAppRuntime(isAppRuntime());
     const isLocalHost =
       typeof window !== "undefined" &&
       (window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost");
@@ -74,7 +77,7 @@ export default function AppShell({ children }) {
   }, [pathname, router]);
 
   const showProtectedLoader = loading && !isPublic;
-  const blockProtectedRoute = !loading && !session && !isPublic;
+  const blockProtectedRoute = !loading && (!session || !appRuntime) && !isPublic;
   const showNav = Boolean(session) && !isPublic;
 
   return (

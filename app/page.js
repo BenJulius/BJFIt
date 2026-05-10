@@ -1,167 +1,137 @@
 "use client";
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { motion } from "framer-motion";
-import { ArrowRight } from "lucide-react";
 import Script from "next/script";
+import { supabase } from "@/lib/supabase";
+import { ArrowRight, Download, Smartphone, Sparkles } from "lucide-react";
+import { isAppRuntime } from "@/lib/runtimeMode";
 
-export default function Login() {
-  const router = useRouter();
-  const [loading, setLoading] = useState(false);
+export default function HomePage() {
+  const [appMode, setAppMode] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isLogin, setIsLogin] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
   const [authing, setAuthing] = useState(false);
-  const [gisRendered, setGisRendered] = useState(false);
-  const [authMessage, setAuthMessage] = useState("");
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 
   useEffect(() => {
-    const checkUser = async () => {
-      try {
-        const sessionPromise = supabase.auth.getSession();
-        const timeoutPromise = new Promise((resolve) =>
-          setTimeout(() => resolve({ data: { session: null }, error: new Error("session timeout") }), 4000)
-        );
-        const result = await Promise.race([sessionPromise, timeoutPromise]);
-        const session = result?.data?.session ?? null;
+    setAppMode(isAppRuntime());
+  }, []);
 
-        if (session) {
-          router.replace("/dashboard");
-          return;
-        }
-      } catch (error) {
-        console.error("Session check failed:", error);
-      } finally {
-        setLoading(false);
+  const handleEmailAuth = async (e) => {
+    e.preventDefault();
+    setBusy(true);
+    setMessage("");
+    try {
+      if (isLogin) {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        window.location.href = "/dashboard?app=1";
+      } else {
+        const { error } = await supabase.auth.signUp({ email, password });
+        if (error) throw error;
+        window.location.href = "/onboarding?app=1";
       }
-    };
-    checkUser();
-  }, [router]);
-
-  useEffect(() => {
-    if (!googleClientId || !window.google?.accounts?.id) return;
-
-    window.google.accounts.id.initialize({
-      client_id: googleClientId,
-      callback: async (response) => {
-        if (!response.credential) return;
-        setAuthing(true);
-        const { error } = await supabase.auth.signInWithIdToken({
-          provider: "google",
-          token: response.credential,
-        });
-        setAuthing(false);
-        if (error) {
-          alert(error.message);
-          return;
-        }
-        router.replace("/dashboard");
-      },
-      ux_mode: "popup",
-      auto_select: false,
-      cancel_on_tap_outside: true,
-    });
-
-    const button = document.getElementById("google-native-button");
-    if (button) {
-      button.innerHTML = "";
-      window.google.accounts.id.renderButton(button, {
-        theme: "filled_black",
-        size: "large",
-        shape: "pill",
-        text: "continue_with",
-        width: Math.min(320, button.clientWidth || 320),
-      });
-      setGisRendered(true);
+    } catch (error) {
+      setMessage(error?.message || "Auth failed.");
+    } finally {
+      setBusy(false);
     }
-  }, [googleClientId, router]);
+  };
 
   const handleGoogleLogin = async () => {
-    setAuthMessage("");
     setAuthing(true);
-    setAuthMessage("Opening Google Sign-In...");
+    setMessage("");
     try {
-      const redirectTo = `${window.location.origin}/dashboard`;
+      const redirectTo = `${window.location.origin}/dashboard?app=1`;
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
-        options: {
-          redirectTo,
-          queryParams: { prompt: "select_account" },
-          skipBrowserRedirect: true,
-        },
+        options: { redirectTo, queryParams: { prompt: "select_account" }, skipBrowserRedirect: true },
       });
       if (error) throw error;
-      if (data?.url) {
-        window.location.assign(data.url);
-        return;
-      }
-      setAuthMessage("Google sign-in did not return an auth URL.");
+      if (data?.url) window.location.assign(data.url);
     } catch (error) {
-      setAuthMessage(error?.message || "Google sign-in failed to start.");
-    } finally {
+      setMessage(error?.message || "Google login failed.");
       setAuthing(false);
     }
   };
 
-  return (
-    <div className="min-h-screen bg-slate-950 p-5 relative overflow-hidden">
-      {googleClientId && <Script src="https://accounts.google.com/gsi/client" strategy="afterInteractive" />}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute -top-24 -left-10 h-72 w-72 rounded-full bg-blue-500/20 blur-3xl" />
-        <div className="absolute top-1/3 -right-16 h-80 w-80 rounded-full bg-cyan-500/15 blur-3xl" />
-        <div className="absolute -bottom-24 left-10 h-80 w-80 rounded-full bg-orange-400/20 blur-3xl" />
-      </div>
+  if (!appMode) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-white">
+        <div className="mx-auto max-w-md p-6 pb-16">
+          <div className="rounded-3xl border border-white/10 bg-slate-900/70 p-5">
+            <div className="flex items-center gap-3">
+              <img src="/icon.png" alt="BJ Fit" className="h-14 w-14 rounded-2xl" />
+              <div>
+                <p className="text-xs font-black uppercase tracking-widest text-cyan-300">BJ Fit App</p>
+                <h1 className="text-3xl font-black">Train In-App</h1>
+              </div>
+            </div>
+            <p className="mt-4 text-sm font-semibold text-slate-300">BJ Fit is app-first. Download to access workout logging, character progression, and AI coaching.</p>
+          </div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 18 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="relative z-10 mx-auto flex min-h-screen w-full max-w-md flex-col justify-center gap-5"
-      >
-        <section className="rounded-3xl border border-white/10 bg-slate-900/65 p-6 shadow-2xl backdrop-blur-md">
+          <div className="mt-4 grid gap-3">
+            <img src="/characters/lion/body-elite.png" alt="app preview 1" className="h-44 w-full rounded-2xl border border-white/10 bg-slate-900 object-contain p-2" />
+            <img src="/characters/shark/body-advanced.png" alt="app preview 2" className="h-44 w-full rounded-2xl border border-white/10 bg-slate-900 object-contain p-2" />
+          </div>
+
+          <div className="mt-5 grid gap-3">
+            <a href="#" className="flex items-center justify-center gap-2 rounded-2xl bg-emerald-400 px-4 py-4 font-black text-slate-950">
+              <Download size={18} /> Download on Google Play
+            </a>
+            <a href="#" className="flex items-center justify-center gap-2 rounded-2xl bg-white px-4 py-4 font-black text-slate-950">
+              <Smartphone size={18} /> Download on App Store
+            </a>
+            <a href="/?app=1" className="flex items-center justify-center gap-2 rounded-2xl border border-cyan-400/50 bg-cyan-400/10 px-4 py-4 font-black text-cyan-200">
+              <Sparkles size={18} /> Enter Android Test Mode
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-950 p-5 text-white">
+      {googleClientId && <Script src="https://accounts.google.com/gsi/client" strategy="afterInteractive" />}
+      <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-4">
+        <section className="rounded-3xl border border-white/10 bg-slate-900/65 p-6">
           <div className="flex items-center gap-4">
-            <img src="/icon.png" alt="BJ Fit icon" className="h-16 w-16 rounded-2xl border border-white/15 shadow-xl" />
+            <img src="/icon.png" alt="BJ Fit icon" className="h-16 w-16 rounded-2xl border border-white/15" />
             <div>
               <p className="text-[11px] font-black uppercase tracking-widest text-cyan-300">Welcome</p>
               <h1 className="text-4xl font-black tracking-tight text-white">BJ Fit</h1>
             </div>
           </div>
-          <p className="mt-5 text-sm font-semibold leading-6 text-slate-300">
-            Track workouts, level up your character, and keep your momentum with coaching that adapts as you train.
-          </p>
-          <p className="mt-3 text-xs font-bold uppercase tracking-wide text-cyan-200/90">
-            Build your streak. Customize your character. Train with intent.
-          </p>
         </section>
 
-        <section className="rounded-3xl border border-slate-800 bg-slate-900/55 p-6 shadow-2xl backdrop-blur-md">
-          <div id="google-native-button" className="flex min-h-[44px] w-full justify-center" />
-          {!gisRendered && (
-            <button
-              onClick={handleGoogleLogin}
-              className="group relative mt-4 w-full flex items-center justify-center gap-3 rounded-2xl bg-white py-4 font-black text-black shadow-xl transition-all active:scale-95 hover:bg-slate-50"
-            >
-              <div className="absolute -inset-1 bg-gradient-to-r from-blue-400 to-purple-400 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-1000 group-hover:duration-200" />
-              <span className="relative z-10">Continue with Google</span>
-              <ArrowRight size={18} className="relative z-10 ml-2 group-hover:translate-x-1 transition-transform" />
+        <section className="rounded-3xl border border-slate-800 bg-slate-900/55 p-6">
+          <button onClick={handleGoogleLogin} className="w-full rounded-2xl bg-white py-4 font-black text-black">
+            {authing ? "Signing in..." : "Continue with Google"}
+          </button>
+
+          <div className="my-4 text-center text-xs font-black uppercase tracking-wider text-slate-500">or</div>
+          <form onSubmit={handleEmailAuth} className="space-y-3">
+            <input value={email} onChange={(e) => setEmail(e.target.value)} className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 font-bold" placeholder="Email" type="email" required />
+            <input value={password} onChange={(e) => setPassword(e.target.value)} className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 font-bold" placeholder="Password" type="password" required />
+            <button disabled={busy} className="w-full rounded-xl bg-emerald-400 py-3 font-black text-slate-950">
+              {busy ? "Processing..." : isLogin ? "Sign In with Email" : "Create Account with Email"}
             </button>
-          )}
-          {authing && <p className="mt-4 text-center text-xs font-bold uppercase tracking-wider text-emerald-400">Signing in...</p>}
-          {authMessage && <p className="mt-4 text-center text-xs font-bold text-red-400">{authMessage}</p>}
-
-          <p className="mt-5 text-center text-[10px] font-bold uppercase tracking-widest leading-relaxed text-slate-500">
-            Your streak, rewards, and character progress sync across devices.
-          </p>
+          </form>
+          <button onClick={() => setIsLogin((v) => !v)} className="mt-3 w-full text-center text-sm font-bold text-cyan-300">
+            {isLogin ? "Need an account? Sign up" : "Already have an account? Sign in"}
+          </button>
+          {message && <p className="mt-3 text-center text-xs font-bold text-red-400">{message}</p>}
         </section>
 
-        <div className="px-4">
-          <p className="text-center text-[10px] font-bold tracking-wide text-slate-500">
-            By continuing, you agree to our{" "}
-            <Link href="/terms" className="text-cyan-400 hover:text-cyan-300">Terms</Link>,{" "}
-            <Link href="/privacy" className="text-cyan-400 hover:text-cyan-300">Privacy Policy</Link>, and{" "}
-            <Link href="/data-deletion" className="text-cyan-400 hover:text-cyan-300">Data Deletion Policy</Link>.
-          </p>
-        </div>
-      </motion.div>
+        <p className="text-center text-[10px] font-bold text-slate-500">
+          By continuing, you agree to our <Link href="/terms" className="text-cyan-400">Terms</Link>, <Link href="/privacy" className="text-cyan-400">Privacy Policy</Link>, and <Link href="/data-deletion" className="text-cyan-400">Data Deletion Policy</Link>.
+        </p>
+      </div>
     </div>
   );
 }
+
