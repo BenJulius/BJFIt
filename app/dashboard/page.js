@@ -10,6 +10,7 @@ import { getCharacterState, getCharacterProgress, initializeCharacterProgress } 
 import { getCharacterLevel, MAX_CHARACTER_LEVEL } from "@/lib/characters";
 import InstallPrompt from "@/components/InstallPrompt";
 import NotificationManager from "@/components/NotificationManager";
+import { getEliteReadiness } from "@/lib/eliteStatus";
 
 export default function Dashboard() {
   const [workouts, setWorkouts] = useState([]);
@@ -83,6 +84,7 @@ export default function Dashboard() {
   const activeCharacterId = profile?.avatar || "panda";
   const activeProgress = userId ? getCharacterProgress(userId, activeCharacterId) : { xp: 0, equipped: [] };
   const activeCharacterLevel = getCharacterLevel(activeProgress.xp);
+  const readiness = useMemo(() => getEliteReadiness(workouts, profile || {}), [workouts, profile]);
 
   const forceHardLoginRedirect = async () => {
     await supabase.auth.signOut();
@@ -146,6 +148,32 @@ export default function Dashboard() {
           characterXP={activeProgress.xp}
           equipped={activeProgress.equipped}
         />
+
+        <section className="rounded-2xl border border-emerald-200 bg-white p-5 shadow-sm dark:border-emerald-400/20 dark:bg-slate-900">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-wider text-emerald-500">Command Center</p>
+              <h2 className="text-xl font-black">{readiness.label}</h2>
+            </div>
+            <div className="flex h-16 w-16 flex-col items-center justify-center rounded-2xl bg-emerald-400/15 text-emerald-600 dark:text-emerald-300">
+              <span className="text-2xl font-black">{readiness.score}</span>
+              <span className="text-[9px] font-black uppercase">Ready</span>
+            </div>
+          </div>
+          <p className="text-sm font-bold leading-6 text-slate-600 dark:text-slate-300">{readiness.nextAction}</p>
+          <div className="mt-4 grid grid-cols-3 gap-2">
+            {[
+              ["Streak", `${readiness.streak}d`],
+              ["Today", readiness.todaySets],
+              ["Moves", readiness.uniqueMoves],
+            ].map(([label, value]) => (
+              <div key={label} className="rounded-xl bg-slate-100 p-3 dark:bg-slate-950">
+                <p className="text-lg font-black">{value}</p>
+                <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">{label}</p>
+              </div>
+            ))}
+          </div>
+        </section>
 
         <section className="grid grid-cols-3 gap-3">
           {[

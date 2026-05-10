@@ -16,6 +16,8 @@ export default function Onboarding() {
   const [suggestions, setSuggestions] = useState([])
   const [validationError, setValidationError] = useState("")
   const router = useRouter()
+  const stepLabels = ["Stats", "Weight", "Goal", "Handle", "Character", "Premium", "Review"]
+  const progressPercent = Math.round((step / stepLabels.length) * 100)
 
   useEffect(() => {
     const getUserData = async () => {
@@ -99,8 +101,18 @@ export default function Onboarding() {
           </button>
         )}
 
-        <div className="text-sm text-slate-500 mb-4 font-bold tracking-widest uppercase text-center">
-          {step === 7 ? "Confirm Profile" : `Step ${step} of 6`}
+        <div className="mb-5">
+          <div className="mb-3 flex items-center justify-between text-[10px] font-black uppercase tracking-wider text-slate-500">
+            <span>{stepLabels[step - 1]}</span>
+            <span>{step} / {stepLabels.length}</span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-slate-800">
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: `${progressPercent}%` }}
+              className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-cyan-400"
+            />
+          </div>
         </div>
 
         <AnimatePresence mode="wait">
@@ -127,6 +139,10 @@ export default function Onboarding() {
                 <option value="lose_fat">Lose Fat</option>
                 <option value="endurance">Endurance</option>
               </select>
+              <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4 text-left">
+                <p className="text-xs font-black uppercase tracking-wider text-emerald-300">Coach setup</p>
+                <p className="mt-1 text-sm font-bold leading-6 text-slate-200">This goal tunes your AI plan, premium diagnostics, and daily quest pressure.</p>
+              </div>
             </motion.div>
           )}
 
@@ -157,10 +173,22 @@ export default function Onboarding() {
           {step === 6 && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6 text-center py-2">
               <div className="inline-block p-3 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-full"><Sparkles className="text-pink-400 w-8 h-8" /></div>
-              <h2 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">Panda Premium</h2>
+              <h2 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">BJ Fit Premium</h2>
+              <p className="text-sm font-bold leading-6 text-slate-300">Unlock the coach layer built for serious progression, not generic tips.</p>
+              <div className="grid grid-cols-2 gap-3 text-left">
+                <div className="rounded-2xl border border-slate-700 bg-slate-950/60 p-4">
+                  <p className="text-xs font-black uppercase tracking-wider text-slate-500">Free</p>
+                  <p className="mt-2 text-sm font-bold text-slate-300">Logging, quests, character XP, and basic AI plans.</p>
+                </div>
+                <div className="rounded-2xl border border-purple-400/40 bg-purple-500/10 p-4">
+                  <p className="text-xs font-black uppercase tracking-wider text-purple-300">Premium</p>
+                  <p className="mt-2 text-sm font-bold text-slate-100">Gemini diagnostics, weak-point flags, and priority-ranked next actions.</p>
+                </div>
+              </div>
               <div className="text-left bg-white/5 border border-purple-500/30 rounded-2xl p-5 space-y-3">
-                <p className="flex items-center gap-3 text-sm font-bold text-slate-200"><CheckCircle2 className="text-emerald-400 w-4 h-4" /> AI Routine Analysis</p>
-                <p className="flex items-center gap-3 text-sm font-bold text-slate-200"><CheckCircle2 className="text-emerald-400 w-4 h-4" /> Goal Tracking</p>
+                <p className="flex items-center gap-3 text-sm font-bold text-slate-200"><CheckCircle2 className="text-emerald-400 w-4 h-4" /> Personalized plateau detection</p>
+                <p className="flex items-center gap-3 text-sm font-bold text-slate-200"><CheckCircle2 className="text-emerald-400 w-4 h-4" /> Recovery and progression risk checks</p>
+                <p className="flex items-center gap-3 text-sm font-bold text-slate-200"><CheckCircle2 className="text-emerald-400 w-4 h-4" /> Better next-workout instructions</p>
               </div>
             </motion.div>
           )}

@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "test": "node test/progression.test.mjs && node test/exercisePicker.test.mjs && node test/insights.test.mjs",
+    "test": "node test/progression.test.mjs && node test/exercisePicker.test.mjs && node test/insights.test.mjs && node test/eliteStatus.test.mjs",
     "build": "next build",
     "start": "next start"
   },

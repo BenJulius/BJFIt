@@ -282,6 +282,19 @@ export default function Profile() {
           </button>
         </div>
 
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            ["Owned", progress.owned.length],
+            ["Equipped", progress.equipped.length],
+            ["Tokens", characterState?.tokens || 0],
+          ].map(([label, value]) => (
+            <div key={label} className="rounded-2xl bg-slate-50 p-3 dark:bg-slate-950">
+              <p className="text-lg font-black text-slate-900 dark:text-white">{value}</p>
+              <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">{label}</p>
+            </div>
+          ))}
+        </div>
+
         <div className="rounded-2xl bg-slate-50 p-4 dark:bg-slate-950">
           <div className="flex justify-between text-xs font-black uppercase tracking-wider text-slate-500">
             <span>{activeCharacterId} level {getCharacterLevel(progress.xp)}</span>
@@ -440,13 +453,19 @@ export default function Profile() {
                     </p>
                   </div>
                 </div>
-                <div className="text-right">
+              <div className="text-right">
                    <p className="text-xs font-bold text-slate-400 uppercase mb-1">Subscription</p>
                    <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${profile?.tier === 'premium' ? 'bg-purple-100 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>
                      {profile?.tier || 'Free'}
                    </span>
                 </div>
               </div>
+              {profile?.tier !== "premium" && (
+                <div className="rounded-2xl border border-purple-300 bg-purple-50 p-4 dark:border-purple-400/20 dark:bg-purple-500/10">
+                  <p className="text-xs font-black uppercase tracking-wider text-purple-700 dark:text-purple-300">Premium Coach</p>
+                  <p className="mt-1 text-sm font-bold leading-6 text-purple-950 dark:text-purple-100">Unlock Gemini diagnostics, recovery risk flags, and smarter next-workout priorities from your logs.</p>
+                </div>
+              )}
               <div>
                 <label className="text-xs font-bold text-slate-500 uppercase">Goal</label>
                 <p className="text-lg font-bold text-slate-900 dark:text-white capitalize mt-1">

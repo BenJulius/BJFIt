@@ -8,6 +8,11 @@
   "background_color": "#020617",
   "theme_color": "#020617",
   "description": "A gamified AI workout tracker with character progression, daily quests, and next-workout coaching.",
+  "lang": "en-US",
+  "scope": "/",
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  },
   "categories": ["health", "fitness", "productivity"],
   "icons": [
     {
@@ -35,6 +40,22 @@
       "short_name": "Coach",
       "url": "/insights",
       "description": "Get next-workout guidance"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/logo-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "BJ Fit workout command center"
+    },
+    {
+      "src": "/logo-1024.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "BJ Fit AI coach and character progression"
     }
   ]
 }

@@ -6,6 +6,7 @@ import { BrainCircuit, CheckCircle2, Crown, Hourglass, Loader2, Lock, RefreshCw,
 import LevelCompanion from "@/components/LevelCompanion";
 import { buildLocalCoachingPlan, getWorkoutSummary } from "@/lib/progression";
 import { buildLocalPremiumAnalysis, isPremiumProfile } from "@/lib/insights";
+import { getEliteReadiness } from "@/lib/eliteStatus";
 
 export default function Insights() {
   const [profile, setProfile] = useState(null);
@@ -22,6 +23,7 @@ export default function Insights() {
   const [premiumError, setPremiumError] = useState("");
 
   const summary = useMemo(() => getWorkoutSummary(workouts), [workouts]);
+  const readiness = useMemo(() => getEliteReadiness(workouts, profile || {}), [workouts, profile]);
 
   const fetchCoach = async (nextWorkouts = workouts, nextProfile = profile) => {
     setCoaching(true);
@@ -137,6 +139,34 @@ export default function Insights() {
         </div>
 
         <LevelCompanion totalXP={profile?.total_xp || 0} size="compact" mood="ready" characterId={profile?.avatar || "panda"} />
+
+        <section className="rounded-2xl border border-cyan-200 bg-white p-5 shadow-sm dark:border-cyan-400/20 dark:bg-slate-900">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-wider text-cyan-500">Signal Quality</p>
+              <h2 className="text-lg font-black">{readiness.label}</h2>
+            </div>
+            <div className="rounded-2xl bg-cyan-400/15 px-4 py-3 text-center text-cyan-700 dark:text-cyan-300">
+              <p className="text-2xl font-black">{readiness.score}</p>
+              <p className="text-[9px] font-black uppercase">Coach signal</p>
+            </div>
+          </div>
+          <p className="text-sm font-bold leading-6 text-slate-600 dark:text-slate-300">{readiness.nextAction}</p>
+          <div className="mt-4 grid grid-cols-3 gap-2">
+            <div className="rounded-xl bg-slate-100 p-3 dark:bg-slate-950">
+              <p className="text-lg font-black">{readiness.streak}</p>
+              <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">Day chain</p>
+            </div>
+            <div className="rounded-xl bg-slate-100 p-3 dark:bg-slate-950">
+              <p className="text-lg font-black">{readiness.todaySets}</p>
+              <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">Today sets</p>
+            </div>
+            <div className="rounded-xl bg-slate-100 p-3 dark:bg-slate-950">
+              <p className="text-lg font-black">{readiness.uniqueMoves}</p>
+              <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">Signals</p>
+            </div>
+          </div>
+        </section>
 
         <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-slate-900">
           <div className="mb-4 flex items-start justify-between gap-4">
