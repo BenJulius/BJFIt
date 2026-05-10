@@ -150,3 +150,5 @@ node_modules
 dev*.log
 MOBILE_APP_NOTES.md
 PLAY_STORE_READINESS.md
+public/sw.js
+public/workbox-*.js

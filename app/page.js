@@ -12,6 +12,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [authing, setAuthing] = useState(false);
   const [gisRendered, setGisRendered] = useState(false);
+  const [authMessage, setAuthMessage] = useState("");
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 
   useEffect(() => {
@@ -71,58 +72,39 @@ export default function Login() {
         text: "continue_with",
         width: Math.min(320, button.clientWidth || 320),
       });
-      window.google.accounts.id.prompt();
       setGisRendered(true);
     }
   }, [googleClientId, router]);
 
   const handleGoogleLogin = async () => {
-    if (window.google?.accounts?.id && googleClientId) {
-      window.google.accounts.id.prompt();
-      return;
-    }
+    setAuthMessage("");
     if (!googleClientId) {
-      alert("Google Sign-In is not configured on this environment yet. Please set NEXT_PUBLIC_GOOGLE_CLIENT_ID.");
+      setAuthMessage("Google Sign-In is not configured yet. NEXT_PUBLIC_GOOGLE_CLIENT_ID is missing.");
       return;
     }
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        skipBrowserRedirect: true,
-        redirectTo: `${window.location.origin}/dashboard`,
-        queryParams: { prompt: "select_account" },
-      },
-    });
-    if (error || !data?.url) {
-      alert(error?.message || "Google Sign-In is still loading. Please wait a second and tap again.");
-      return;
-    }
-    const popup = window.open(
-      data.url,
-      "google-oauth",
-      "width=520,height=680,menubar=no,toolbar=no,status=no,scrollbars=yes,resizable=yes"
-    );
-    if (!popup) {
-      alert("Popup was blocked by the browser. Please allow popups and try again.");
-      return;
-    }
-
     setAuthing(true);
-    const started = Date.now();
-    const timer = window.setInterval(async () => {
-      const { data: sessionData } = await supabase.auth.getSession();
-      if (sessionData?.session) {
-        window.clearInterval(timer);
-        popup.close();
-        setAuthing(false);
-        router.replace("/dashboard");
+    setAuthMessage("Opening Google Sign-In...");
+    try {
+      const redirectTo = `${window.location.origin}/dashboard`;
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo,
+          queryParams: { prompt: "select_account" },
+          skipBrowserRedirect: true,
+        },
+      });
+      if (error) throw error;
+      if (data?.url) {
+        window.location.assign(data.url);
         return;
       }
-      if (popup.closed || Date.now() - started > 120000) {
-        window.clearInterval(timer);
-        setAuthing(false);
-      }
-    }, 800);
+      setAuthMessage("Google sign-in did not return an auth URL.");
+    } catch (error) {
+      setAuthMessage(error?.message || "Google sign-in failed to start.");
+    } finally {
+      setAuthing(false);
+    }
   };
 
   return (
@@ -168,6 +150,7 @@ export default function Login() {
             </button>
           )}
           {authing && <p className="mt-4 text-center text-xs font-bold uppercase tracking-wider text-emerald-400">Signing in...</p>}
+          {authMessage && <p className="mt-4 text-center text-xs font-bold text-red-400">{authMessage}</p>}
 
           <p className="mt-5 text-center text-[10px] font-bold uppercase tracking-widest leading-relaxed text-slate-500">
             Your streak, rewards, and character progress sync across devices.

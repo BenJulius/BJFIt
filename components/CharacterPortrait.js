@@ -1,12 +1,25 @@
 "use client";
 import { getCharacter } from "@/lib/characters";
+import { useState } from "react";
+import { getCharacterVisuals } from "@/lib/characterVisuals";
 
-export default function CharacterPortrait({ characterId = "panda", size = 72, className = "" }) {
+export default function CharacterPortrait({ characterId = "panda", size = 72, className = "", level = 1 }) {
   const character = getCharacter(characterId);
   const traits = character.traits || {};
+  const visuals = getCharacterVisuals(characterId, level);
+  const [imgFailed, setImgFailed] = useState(false);
 
   return (
     <div className={`relative overflow-hidden rounded-2xl ${className}`} style={{ width: size, height: size, background: `linear-gradient(145deg, ${character.accent}40, #020617)` }}>
+      {!imgFailed && (
+        <img
+          src={visuals.portrait}
+          alt={`${character.name} portrait`}
+          className="absolute inset-0 h-full w-full object-cover"
+          onError={() => setImgFailed(true)}
+        />
+      )}
+      {imgFailed && (
       <svg viewBox="0 0 120 120" className="h-full w-full">
         <ellipse cx="60" cy="112" rx="28" ry="12" fill="#00000055" />
         <path d="M35 112 C32 86 40 72 50 72 C60 72 66 88 64 112 Z" fill="#f5c9a5" />
@@ -35,6 +48,7 @@ export default function CharacterPortrait({ characterId = "panda", size = 72, cl
         <circle cx="69" cy="28" r="2.4" fill="#f8fafc" />
         <path d="M56 42 Q60 46 64 42" stroke={character.dark} strokeWidth="3" strokeLinecap="round" fill="none" />
       </svg>
+      )}
     </div>
   );
 }

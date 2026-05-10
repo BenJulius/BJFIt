@@ -3,6 +3,8 @@ import { motion } from "framer-motion";
 import { Crown, Flame } from "lucide-react";
 import { getLevelState } from "@/lib/progression";
 import { getCharacter, getCharacterLevel, getCharacterShop, getPhysiqueStage, MAX_CHARACTER_LEVEL } from "@/lib/characters";
+import { getCharacterVisuals } from "@/lib/characterVisuals";
+import { useState } from "react";
 
 export default function LevelCompanion({
   totalXP = 0,
@@ -34,6 +36,8 @@ export default function LevelCompanion({
   const hasWraps = equippedSlots.has("wraps");
   const hasAura = equippedSlots.has("aura");
   const traits = character.traits || {};
+  const visuals = getCharacterVisuals(characterId, characterLevel);
+  const [imageModeFailed, setImageModeFailed] = useState(false);
 
   return (
     <div className={`relative ${shellSize} w-full overflow-hidden rounded-2xl border border-slate-200 bg-slate-950 text-white shadow-xl dark:border-white/10`}>
@@ -56,6 +60,15 @@ export default function LevelCompanion({
         transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
         className={`absolute left-1/2 ${compact ? "bottom-2 w-36" : "bottom-3 w-52"} -translate-x-1/2`}
       >
+        {!imageModeFailed && (
+          <img
+            src={visuals.body}
+            alt={`${character.name} body`}
+            className="h-full w-full object-contain drop-shadow-2xl"
+            onError={() => setImageModeFailed(true)}
+          />
+        )}
+        {imageModeFailed && (
         <svg viewBox="0 0 200 240" className="h-full w-full drop-shadow-2xl" role="img" aria-label={`${character.name} training companion`}>
           <motion.path
             d="M72 178 C62 199 58 214 63 226 C74 230 84 219 88 198"
@@ -167,6 +180,7 @@ export default function LevelCompanion({
           {hatItem?.equips?.includes("hat") && <path d="M65 27 C78 18 102 18 115 27 L112 35 C99 31 81 31 68 35 Z" fill={hatItem.color} stroke="#ffffff" strokeWidth="2" />}
           {(hatItem?.equips?.includes("crown") || characterLevel >= 120) && <path d="M61 23 L75 11 L90 24 L105 11 L119 23 L114 37 L66 37 Z" fill={hatItem?.color || "#fbbf24"} stroke="#fef3c7" strokeWidth="3" />}
         </svg>
+        )}
       </motion.div>
 
       <div className="absolute inset-x-4 bottom-4 z-20">
