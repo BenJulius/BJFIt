@@ -1,56 +1,140 @@
 "use client"
-import { useState, useEffect } from "react"
-import { motion, AnimatePresence } from "framer-motion"
-import AnimatedPanda from "@/components/AnimatedPanda"
+
+import { useEffect, useMemo, useState } from "react"
+import { AnimatePresence, motion } from "framer-motion"
 import AvatarPicker from "@/components/AvatarPicker"
+import CharacterPortrait from "@/components/CharacterPortrait"
 import { supabase } from "@/lib/supabase"
-import { Sparkles, AlertCircle, ChevronLeft, Edit3, UserCheck } from "lucide-react"
+import { getCharacter } from "@/lib/characters"
+import {
+  GOAL_OPTIONS,
+  ONBOARDING_STEPS,
+  PLAN_OPTIONS,
+  TRAINING_STYLES,
+  buildHandleSuggestions,
+  getStepProgress,
+  isPremiumPlan,
+  normalizeHandle,
+  validateOnboardingStep,
+} from "@/lib/onboarding"
+import {
+  AlertCircle,
+  ArrowRight,
+  BadgeCheck,
+  CalendarClock,
+  CheckCircle2,
+  ChevronLeft,
+  Edit3,
+  LockKeyhole,
+  ShieldCheck,
+  Sparkles,
+  Target,
+  UserCheck,
+  Zap,
+} from "lucide-react"
+
+const cardMotion = {
+  initial: { opacity: 0, y: 16 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -10 },
+  transition: { duration: 0.22 },
+}
+
+function OptionCard({ selected, title, description, meta, icon, onClick, tone = "emerald" }) {
+  const selectedClass = tone === "purple"
+    ? "border-purple-300 bg-purple-400/15 shadow-purple-500/10"
+    : "border-emerald-300 bg-emerald-400/15 shadow-emerald-500/10"
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex w-full items-start gap-3 rounded-2xl border p-4 text-left shadow-lg transition active:scale-[0.99] ${
+        selected ? selectedClass : "border-white/10 bg-white/[0.04] hover:bg-white/[0.07]"
+      }`}
+    >
+      <span className={`mt-0.5 rounded-xl p-2 ${selected ? "bg-white text-slate-950" : "bg-slate-900 text-slate-300"}`}>
+        {icon}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center justify-between gap-3">
+          <span className="font-black text-white">{title}</span>
+          {selected && <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-300" />}
+        </span>
+        <span className="mt-1 block text-sm font-semibold leading-5 text-slate-300">{description}</span>
+        {meta && <span className="mt-3 inline-flex rounded-full bg-slate-950/70 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-slate-400">{meta}</span>}
+      </span>
+    </button>
+  )
+}
 
 export default function Onboarding() {
   const [step, setStep] = useState(1)
-  const [formData, setFormData] = useState({ age: "", weight: "", goal: "", username: "", avatar: "panda" })
+  const [formData, setFormData] = useState({
+    age: "",
+    weight: "",
+    goal: "",
+    username: "",
+    avatar: "panda",
+    trainingStyle: "balanced",
+    planChoice: "yearly",
+  })
   const [loading, setLoading] = useState(false)
   const [checkingUsername, setCheckingUsername] = useState(false)
   const [suggestions, setSuggestions] = useState([])
   const [validationError, setValidationError] = useState("")
-  const [planChoice, setPlanChoice] = useState("yearly")
   const [acceptTrialTerms, setAcceptTrialTerms] = useState(false)
-  const [acceptDataTerms, setAcceptDataTerms] = useState(false)
-  const stepLabels = ["Character", "Goal", "Stats", "Weight", "Handle", "Training", "Offer", "Agreement", "Review"]
-  const progressPercent = Math.round((step / stepLabels.length) * 100)
+
+  const activeCharacter = getCharacter(formData.avatar)
+  const activeGoal = GOAL_OPTIONS.find((goal) => goal.id === formData.goal)
+  const activeStyle = TRAINING_STYLES.find((style) => style.id === formData.trainingStyle)
+  const activePlan = PLAN_OPTIONS.find((plan) => plan.id === formData.planChoice) || PLAN_OPTIONS[0]
+  const premiumSelected = isPremiumPlan(formData.planChoice)
+  const progressPercent = getStepProgress(step)
+
+  const coachLine = useMemo(() => {
+    if (step === 1) return "Your training arc starts here."
+    if (step === 2) return `${activeCharacter.name} is ready to calibrate.`
+    if (step === 6) return premiumSelected ? "Premium trial details are transparent before checkout." : "Free mode keeps setup fast."
+    if (step === 7) return "Review once, then launch."
+    return "A tighter setup creates better daily guidance."
+  }, [activeCharacter.name, premiumSelected, step])
 
   useEffect(() => {
     const getUserData = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
       const rawName = user.user_metadata?.full_name || user.user_metadata?.name || "athlete"
-      const base = rawName.toLowerCase().replace(/[^a-z0-9]/g, "")
-      const first = rawName.split(" ")[0].toLowerCase().replace(/[^a-z0-9]/g, "")
-      setSuggestions([base, `${base}${Math.floor(Math.random() * 99) + 1}`, `${first}_lifts`])
+      setSuggestions(buildHandleSuggestions(rawName, Math.floor(Math.random() * 89) + 10))
     }
     getUserData()
   }, [])
 
+  const updateForm = (patch) => setFormData((current) => ({ ...current, ...patch }))
+
   const nextStep = () => {
     setValidationError("")
-    if (step === 2 && !formData.goal) return setValidationError("Please select a goal.")
-    if (step === 3 && !formData.age) return setValidationError("Age is required.")
-    if (step === 4 && !formData.weight) return setValidationError("Weight is required.")
-    if (step === 8 && (!acceptDataTerms || !acceptTrialTerms)) return setValidationError("Accept all agreement terms to continue.")
-    setStep((prev) => prev + 1)
+    const error = validateOnboardingStep(step, formData, { acceptTrialTerms })
+    if (error) {
+      setValidationError(error)
+      return
+    }
+    setStep((prev) => Math.min(prev + 1, ONBOARDING_STEPS.length))
   }
 
   const prevStep = () => {
     setValidationError("")
-    setStep((prev) => prev - 1)
+    setStep((prev) => Math.max(prev - 1, 1))
   }
 
   const handleUsernameStep = async () => {
     setValidationError("")
-    if (!formData.username || formData.username.length < 3) {
-      setValidationError("Username must be at least 3 characters.")
+    const error = validateOnboardingStep(5, formData)
+    if (error) {
+      setValidationError(error)
       return
     }
+
     setCheckingUsername(true)
     const { data } = await supabase.from("profiles").select("id").eq("username", formData.username).maybeSingle()
     setCheckingUsername(false)
@@ -60,7 +144,12 @@ export default function Onboarding() {
 
   const finishSignup = async () => {
     setValidationError("")
-    if (!acceptDataTerms || !acceptTrialTerms) return setValidationError("Accept all agreement terms to continue.")
+    if (premiumSelected && !acceptTrialTerms) {
+      setStep(6)
+      setValidationError("Confirm the 7-day trial and renewal terms before starting premium.")
+      return
+    }
+
     setLoading(true)
     const { data: { user } } = await supabase.auth.getUser()
 
@@ -82,140 +171,317 @@ export default function Onboarding() {
       }
     }
 
-    const yearlyOfferUrl = process.env.NEXT_PUBLIC_STRIPE_YEARLY_OFFER_TRIAL_URL || ""
-    const monthlyTrialUrl = process.env.NEXT_PUBLIC_STRIPE_MONTHLY_TRIAL_URL || ""
-    const checkout = planChoice === "yearly" ? yearlyOfferUrl : monthlyTrialUrl
-    if (checkout) {
-      window.location.href = checkout
-      return
+    if (premiumSelected) {
+      const yearlyOfferUrl = process.env.NEXT_PUBLIC_STRIPE_YEARLY_OFFER_TRIAL_URL || ""
+      const monthlyTrialUrl = process.env.NEXT_PUBLIC_STRIPE_MONTHLY_TRIAL_URL || ""
+      const checkout = formData.planChoice === "yearly" ? yearlyOfferUrl : monthlyTrialUrl
+      if (checkout) {
+        window.location.href = checkout
+        return
+      }
     }
 
     window.location.href = "/dashboard?app=1"
   }
 
   return (
-    <div className="flex h-screen max-w-md flex-col justify-center bg-slate-950 p-6 mx-auto">
-      <div className="flex justify-center mb-8">
-        <AnimatedPanda message={step === 7 ? "Big offer unlocked." : step === 9 ? "Ready to launch." : "Let us tune your training."} />
+    <main className="min-h-screen overflow-hidden bg-slate-950 text-white">
+      <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 py-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between py-2">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-400 text-sm font-black text-slate-950">BJ</div>
+            <div>
+              <p className="text-sm font-black leading-tight">BJ Fit</p>
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Setup</p>
+            </div>
+          </div>
+          <div className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-black text-slate-300">
+            {step} / {ONBOARDING_STEPS.length}
+          </div>
+        </div>
+
+        <section className="grid flex-1 items-center gap-6 py-4 lg:grid-cols-[0.95fr_1.05fr] lg:gap-10">
+          <aside className="relative hidden min-h-[650px] overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl shadow-black/40 lg:block">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_35%_20%,rgba(52,211,153,0.25),transparent_32%),radial-gradient(circle_at_80%_45%,rgba(56,189,248,0.18),transparent_30%),linear-gradient(160deg,#020617_0%,#0f172a_55%,#111827_100%)]" />
+            <div className="relative flex h-full flex-col justify-between p-8">
+              <div className="flex items-center justify-between">
+                <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-200">Character-first coaching</span>
+                <Sparkles className="text-cyan-200" size={22} />
+              </div>
+              <div className="mx-auto flex w-full max-w-sm flex-1 items-center justify-center">
+                <div className="relative w-full">
+                  <div className="absolute inset-x-10 bottom-10 h-24 rounded-full bg-black/30 blur-2xl" />
+                  <CharacterPortrait characterId={formData.avatar} size={300} className="relative mx-auto border border-white/15 shadow-2xl shadow-black/30" />
+                </div>
+              </div>
+              <div className="grid gap-3">
+                <div className="rounded-3xl border border-white/10 bg-black/25 p-5 backdrop-blur">
+                  <p className="text-3xl font-black leading-tight">{activeCharacter.name} training arc</p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-300">{coachLine}</p>
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  {["Personal plan", "Daily quests", "AI insights"].map((item) => (
+                    <div key={item} className="rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-center text-xs font-black text-slate-300">{item}</div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </aside>
+
+          <div className="mx-auto w-full max-w-md lg:max-w-xl">
+            <div className="mb-4 lg:hidden">
+              <div className="relative overflow-hidden rounded-[1.75rem] border border-white/10 bg-slate-900 p-4">
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_25%_10%,rgba(52,211,153,0.22),transparent_34%),linear-gradient(135deg,#020617,#111827)]" />
+                <div className="relative flex items-center gap-4">
+                  <CharacterPortrait characterId={formData.avatar} size={88} className="border border-white/15" />
+                  <div className="min-w-0">
+                    <p className="text-xl font-black">{activeCharacter.name} setup</p>
+                    <p className="mt-1 text-sm font-semibold leading-5 text-slate-300">{coachLine}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-5">
+              <div className="mb-3 flex items-center justify-between text-[10px] font-black uppercase tracking-wider text-slate-500">
+                <span>{ONBOARDING_STEPS[step - 1].label}</span>
+                <span>{progressPercent}% ready</span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-slate-800">
+                <motion.div initial={{ width: 0 }} animate={{ width: `${progressPercent}%` }} className="h-full rounded-full bg-gradient-to-r from-emerald-300 via-cyan-300 to-white" />
+              </div>
+            </div>
+
+            <motion.div layout className="relative rounded-[2rem] border border-white/10 bg-slate-900/95 p-5 shadow-2xl shadow-black/30 sm:p-6">
+              {step > 1 && (
+                <button type="button" onClick={prevStep} className="absolute left-5 top-5 rounded-full border border-white/10 bg-white/[0.03] p-2 text-slate-400 transition hover:text-white">
+                  <ChevronLeft size={18} />
+                </button>
+              )}
+
+              <AnimatePresence mode="wait">
+                {step === 1 && (
+                  <motion.div key="welcome" {...cardMotion} className="space-y-6 pt-8 text-center sm:pt-6">
+                    <span className="mx-auto inline-flex rounded-full border border-emerald-300/30 bg-emerald-300/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-200">
+                      90-second setup
+                    </span>
+                    <div>
+                      <h1 className="text-4xl font-black leading-none tracking-normal sm:text-5xl">Build your training identity.</h1>
+                      <p className="mx-auto mt-4 max-w-sm text-sm font-semibold leading-6 text-slate-300">
+                        Pick a character, calibrate your goal, and launch with a plan that starts simple and gets smarter as you log.
+                      </p>
+                    </div>
+                    <div className="grid gap-3 text-left">
+                      {[
+                        ["Character progression", "Your workouts level up a visible training companion."],
+                        ["Goal calibration", "Setup choices tune the way BJ Fit prioritizes guidance."],
+                        ["Transparent upgrade", "Premium trial terms are shown before checkout."],
+                      ].map(([title, text]) => (
+                        <div key={title} className="flex gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                          <BadgeCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-300" />
+                          <div>
+                            <p className="font-black">{title}</p>
+                            <p className="mt-1 text-sm font-semibold leading-5 text-slate-400">{text}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+
+                {step === 2 && (
+                  <motion.div key="character" {...cardMotion} className="space-y-5 pt-8 sm:pt-6">
+                    <div className="text-center">
+                      <h2 className="text-3xl font-black">Choose your coach avatar.</h2>
+                      <p className="mt-2 text-sm font-semibold leading-6 text-slate-400">This becomes the visual center of your profile, shop, and progression loop.</p>
+                    </div>
+                    <AvatarPicker selectedAvatar={formData.avatar} onSelect={(id) => updateForm({ avatar: id })} />
+                  </motion.div>
+                )}
+
+                {step === 3 && (
+                  <motion.div key="goal" {...cardMotion} className="space-y-5 pt-8 sm:pt-6">
+                    <div className="text-center">
+                      <h2 className="text-3xl font-black">Calibrate the mission.</h2>
+                      <p className="mt-2 text-sm font-semibold leading-6 text-slate-400">Choose the outcome BJ Fit should bias toward when it ranks your next actions.</p>
+                    </div>
+                    <div className="grid gap-3">
+                      {GOAL_OPTIONS.map((goal) => (
+                        <OptionCard
+                          key={goal.id}
+                          selected={formData.goal === goal.id}
+                          title={goal.title}
+                          description={goal.description}
+                          meta={goal.signal}
+                          icon={<Target size={18} />}
+                          onClick={() => updateForm({ goal: goal.id })}
+                        />
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+
+                {step === 4 && (
+                  <motion.div key="baseline" {...cardMotion} className="space-y-5 pt-8 sm:pt-6">
+                    <div className="text-center">
+                      <h2 className="text-3xl font-black">Set the baseline.</h2>
+                      <p className="mt-2 text-sm font-semibold leading-6 text-slate-400">Two inputs keep progress tracking useful without slowing down setup.</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <label className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">Age</span>
+                        <input type="number" inputMode="numeric" className="mt-2 w-full bg-transparent text-2xl font-black text-white outline-none placeholder:text-slate-700" placeholder="32" value={formData.age} onChange={(e) => updateForm({ age: e.target.value })} />
+                      </label>
+                      <label className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">Weight</span>
+                        <div className="mt-2 flex items-end gap-2">
+                          <input type="number" inputMode="decimal" className="min-w-0 flex-1 bg-transparent text-2xl font-black text-white outline-none placeholder:text-slate-700" placeholder="185" value={formData.weight} onChange={(e) => updateForm({ weight: e.target.value })} />
+                          <span className="pb-1 text-xs font-black text-slate-500">lb</span>
+                        </div>
+                      </label>
+                    </div>
+                    <div className="grid gap-3">
+                      {TRAINING_STYLES.map((style) => (
+                        <OptionCard
+                          key={style.id}
+                          selected={formData.trainingStyle === style.id}
+                          title={style.title}
+                          description={style.description}
+                          icon={<Zap size={18} />}
+                          onClick={() => updateForm({ trainingStyle: style.id })}
+                        />
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+
+                {step === 5 && (
+                  <motion.div key="handle" {...cardMotion} className="space-y-5 pt-8 sm:pt-6">
+                    <div className="text-center">
+                      <h2 className="text-3xl font-black">Claim your handle.</h2>
+                      <p className="mt-2 text-sm font-semibold leading-6 text-slate-400">Keep it short. It will anchor your profile and future sharing surfaces.</p>
+                    </div>
+                    <div className="flex items-center rounded-2xl border border-white/10 bg-white/[0.04] p-4 focus-within:border-emerald-300">
+                      <span className="pr-2 text-xl font-black text-slate-500">@</span>
+                      <input
+                        type="text"
+                        value={formData.username}
+                        onChange={(e) => updateForm({ username: normalizeHandle(e.target.value) })}
+                        placeholder="username"
+                        className="w-full bg-transparent text-xl font-black text-white outline-none placeholder:text-slate-700"
+                      />
+                    </div>
+                    {suggestions.length > 0 && (
+                      <div className="flex flex-wrap justify-center gap-2">
+                        {suggestions.map((suggestion) => (
+                          <button key={suggestion} type="button" onClick={() => updateForm({ username: suggestion })} className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-2 text-xs font-black text-emerald-200">
+                            @{suggestion}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </motion.div>
+                )}
+
+                {step === 6 && (
+                  <motion.div key="premium" {...cardMotion} className="space-y-5 pt-8 sm:pt-6">
+                    <div className="text-center">
+                      <span className="mx-auto inline-flex items-center gap-2 rounded-full border border-purple-300/30 bg-purple-300/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-purple-200">
+                        <Sparkles size={13} /> Optional upgrade
+                      </span>
+                      <h2 className="mt-4 text-3xl font-black">Start with the right coach layer.</h2>
+                      <p className="mt-2 text-sm font-semibold leading-6 text-slate-400">Free keeps logging available. Premium adds deeper AI analysis once your workout history starts building.</p>
+                    </div>
+                    <div className="grid gap-3">
+                      {PLAN_OPTIONS.map((plan) => (
+                        <OptionCard
+                          key={plan.id}
+                          selected={formData.planChoice === plan.id}
+                          title={plan.title}
+                          description={`${plan.price} - ${plan.trial}`}
+                          meta={plan.renewal}
+                          tone={plan.id === "free" ? "emerald" : "purple"}
+                          icon={plan.id === "free" ? <ShieldCheck size={18} /> : <LockKeyhole size={18} />}
+                          onClick={() => updateForm({ planChoice: plan.id })}
+                        />
+                      ))}
+                    </div>
+                    {premiumSelected && (
+                      <label className="flex items-start gap-3 rounded-2xl border border-amber-300/20 bg-amber-300/10 p-4">
+                        <input type="checkbox" checked={acceptTrialTerms} onChange={(e) => setAcceptTrialTerms(e.target.checked)} className="mt-1 h-4 w-4 accent-emerald-400" />
+                        <span className="text-sm font-bold leading-6 text-amber-50">
+                          I understand the 7-day free trial starts at checkout. If I do not cancel before the trial ends, BJ Fit renews on the selected plan: {activePlan.renewal}.
+                        </span>
+                      </label>
+                    )}
+                  </motion.div>
+                )}
+
+                {step === 7 && (
+                  <motion.div key="review" {...cardMotion} className="space-y-5 pt-8 sm:pt-6">
+                    <div className="text-center">
+                      <h2 className="text-3xl font-black">Ready to launch.</h2>
+                      <p className="mt-2 text-sm font-semibold leading-6 text-slate-400">Your setup is saved first. Premium checkout opens only if you selected a trial plan.</p>
+                    </div>
+                    <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
+                      <div className="flex items-center gap-4">
+                        <CharacterPortrait characterId={formData.avatar} size={72} className="border border-white/15" />
+                        <div className="min-w-0">
+                          <p className="text-xl font-black">@{formData.username}</p>
+                          <p className="text-sm font-semibold text-slate-400">{activeCharacter.name} - {activeCharacter.rank}</p>
+                        </div>
+                      </div>
+                      <div className="mt-5 grid gap-3 text-sm">
+                        <div className="flex justify-between gap-4"><span className="font-bold text-slate-500">Goal</span><span className="font-black text-white">{activeGoal?.title || "Not set"}</span></div>
+                        <div className="flex justify-between gap-4"><span className="font-bold text-slate-500">Style</span><span className="font-black text-white">{activeStyle?.title || "Balanced"}</span></div>
+                        <div className="flex justify-between gap-4"><span className="font-bold text-slate-500">Plan</span><span className="font-black text-white">{activePlan.title}</span></div>
+                        <div className="flex justify-between gap-4"><span className="font-bold text-slate-500">Trial</span><span className="text-right font-black text-white">{premiumSelected ? "7 days before billing" : "Not selected"}</span></div>
+                      </div>
+                    </div>
+                    <button type="button" onClick={() => setStep(2)} className="flex w-full items-center justify-center gap-2 text-xs font-black uppercase tracking-wider text-slate-400 transition hover:text-white">
+                      <Edit3 size={14} /> Edit setup
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {validationError && (
+                <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="mt-5 flex items-start gap-2 rounded-2xl border border-red-400/20 bg-red-400/10 p-3 text-sm font-bold leading-5 text-red-200">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /> {validationError}
+                </motion.div>
+              )}
+
+              <div className="mt-7">
+                {step < 5 && (
+                  <button type="button" onClick={nextStep} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-white py-4 font-black text-slate-950 transition hover:bg-slate-200">
+                    Continue <ArrowRight size={18} />
+                  </button>
+                )}
+                {step === 5 && (
+                  <button type="button" onClick={handleUsernameStep} disabled={checkingUsername} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-white py-4 font-black text-slate-950 transition hover:bg-slate-200 disabled:opacity-50">
+                    {checkingUsername ? "Checking handle..." : "Continue"} <ArrowRight size={18} />
+                  </button>
+                )}
+                {step === 6 && (
+                  <button type="button" onClick={nextStep} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-white py-4 font-black text-slate-950 transition hover:bg-slate-200">
+                    {premiumSelected ? "Review trial setup" : "Continue free"} <ArrowRight size={18} />
+                  </button>
+                )}
+                {step === 7 && (
+                  <div className="space-y-3">
+                    <button type="button" onClick={finishSignup} disabled={loading} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-400 to-cyan-300 py-4 font-black text-slate-950 shadow-lg shadow-emerald-500/20 transition active:scale-[0.99] disabled:opacity-60">
+                      {loading ? "Saving setup..." : <><UserCheck size={20} /> {premiumSelected ? "Start 7-Day Trial" : "Enter BJ Fit"}</>}
+                    </button>
+                    <p className="flex items-center justify-center gap-2 text-center text-xs font-bold leading-5 text-slate-500">
+                      <CalendarClock size={14} /> {premiumSelected ? activePlan.renewal : "No trial or billing selected."}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        </section>
       </div>
-
-      <motion.div key={step} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-xl relative">
-        {step > 1 && <button onClick={prevStep} className="absolute left-6 top-6 text-slate-500 hover:text-white"><ChevronLeft size={20} /></button>}
-
-        <div className="mb-5">
-          <div className="mb-3 flex items-center justify-between text-[10px] font-black uppercase tracking-wider text-slate-500">
-            <span>{stepLabels[step - 1]}</span>
-            <span>{step} / {stepLabels.length}</span>
-          </div>
-          <div className="h-2 overflow-hidden rounded-full bg-slate-800">
-            <motion.div initial={{ width: 0 }} animate={{ width: `${progressPercent}%` }} className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-cyan-400" />
-          </div>
-        </div>
-
-        <AnimatePresence mode="wait">
-          {step === 1 && <AvatarPicker selectedAvatar={formData.avatar} onSelect={(id) => setFormData({ ...formData, avatar: id })} />}
-
-          {step === 2 && (
-            <div className="space-y-4">
-              <h2 className="text-2xl font-bold text-white text-center">Primary Goal?</h2>
-              <select className="w-full rounded-xl border border-slate-700 bg-slate-950 p-4 font-bold text-white" value={formData.goal} onChange={(e) => setFormData({ ...formData, goal: e.target.value })}>
-                <option value="">Select a goal</option>
-                <option value="build_muscle">Build Muscle</option>
-                <option value="lose_fat">Lose Fat</option>
-                <option value="endurance">Endurance</option>
-              </select>
-            </div>
-          )}
-
-          {step === 3 && <div className="space-y-4"><h2 className="text-2xl font-bold text-white text-center">How old are you?</h2><input type="number" className="w-full rounded-xl border border-slate-700 bg-slate-950 p-4 text-center font-bold text-white" placeholder="Years" value={formData.age} onChange={(e) => setFormData({ ...formData, age: e.target.value })} /></div>}
-          {step === 4 && <div className="space-y-4"><h2 className="text-2xl font-bold text-white text-center">Current weight?</h2><input type="number" className="w-full rounded-xl border border-slate-700 bg-slate-950 p-4 text-center font-bold text-white" placeholder="lbs" value={formData.weight} onChange={(e) => setFormData({ ...formData, weight: e.target.value })} /></div>}
-
-          {step === 5 && (
-            <div className="space-y-4">
-              <h2 className="text-2xl font-bold text-white text-center">Claim your Handle</h2>
-              <div className="flex items-center rounded-xl border border-slate-700 bg-slate-950 p-3">
-                <span className="px-2 font-bold text-slate-400">@</span>
-                <input type="text" value={formData.username} onChange={(e) => setFormData({ ...formData, username: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "") })} placeholder="username" className="w-full bg-transparent font-bold text-white outline-none" />
-              </div>
-              <div className="flex flex-wrap justify-center gap-2">
-                {suggestions.map((sug, i) => <button key={i} type="button" onClick={() => setFormData({ ...formData, username: sug })} className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-bold text-emerald-400">@{sug}</button>)}
-              </div>
-            </div>
-          )}
-
-          {step === 6 && (
-            <div className="space-y-4 text-center">
-              <h2 className="text-2xl font-bold text-white">Training Style</h2>
-              <div className="grid gap-2 text-left">
-                {["Focused", "Balanced", "Aggressive"].map((style) => <div key={style} className="rounded-xl border border-slate-700 bg-slate-950 p-3 font-bold text-white">{style}</div>)}
-              </div>
-            </div>
-          )}
-
-          {step === 7 && (
-            <div className="space-y-5 text-center">
-              <div className="inline-block rounded-full bg-gradient-to-br from-purple-500/20 to-pink-500/20 p-3"><Sparkles className="h-8 w-8 text-pink-400" /></div>
-              <h2 className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-3xl font-black text-transparent">80% Off Yearly During Signup</h2>
-              <p className="text-sm font-bold leading-6 text-slate-300">Start with a free 7-day trial, then auto-renews on your chosen plan.</p>
-              <button type="button" onClick={() => setPlanChoice("yearly")} className={`w-full rounded-2xl border p-4 text-left ${planChoice === "yearly" ? "border-emerald-400 bg-emerald-400/10" : "border-slate-700 bg-slate-950/60"}`}>
-                <p className="text-xs font-black uppercase tracking-wider text-emerald-300">Yearly Signup Offer</p>
-                <p className="text-lg font-black text-white">$20 first year</p>
-                <p className="text-xs font-bold text-slate-300 line-through">$100/year regular price</p>
-              </button>
-              <button type="button" onClick={() => setPlanChoice("monthly")} className={`w-full rounded-2xl border p-4 text-left ${planChoice === "monthly" ? "border-cyan-400 bg-cyan-400/10" : "border-slate-700 bg-slate-950/60"}`}>
-                <p className="text-xs font-black uppercase tracking-wider text-cyan-300">Monthly</p>
-                <p className="text-lg font-black text-white">$10/month after trial</p>
-              </button>
-            </div>
-          )}
-
-          {step === 8 && (
-            <div className="space-y-4">
-              <h2 className="text-2xl font-bold text-white text-center">Agreement</h2>
-              <div className="rounded-2xl border border-slate-700 bg-slate-950/80 p-4 text-sm font-semibold leading-6 text-slate-200">
-                BJ Fit will use your account info for authentication and billing setup. You agree to a 7-day free trial and automatic renewal on your selected plan unless canceled before billing.
-              </div>
-              <label className="flex items-start gap-3 rounded-xl border border-slate-700 bg-slate-950 p-3">
-                <input type="checkbox" checked={acceptDataTerms} onChange={(e) => setAcceptDataTerms(e.target.checked)} className="mt-1" />
-                <span className="text-xs font-bold text-slate-200">I agree to Privacy Policy and Terms.</span>
-              </label>
-              <label className="flex items-start gap-3 rounded-xl border border-slate-700 bg-slate-950 p-3">
-                <input type="checkbox" checked={acceptTrialTerms} onChange={(e) => setAcceptTrialTerms(e.target.checked)} className="mt-1" />
-                <span className="text-xs font-bold text-slate-200">I agree to trial + automatic recurring billing.</span>
-              </label>
-            </div>
-          )}
-
-          {step === 9 && (
-            <div className="space-y-5">
-              <h2 className="text-2xl font-bold text-white text-center">Ready to start?</h2>
-              <div className="rounded-2xl border border-slate-800 bg-slate-950/50 p-5 space-y-3">
-                <div className="flex justify-between"><span className="text-xs font-bold uppercase text-slate-500">Handle</span><span className="font-black text-white">@{formData.username}</span></div>
-                <div className="flex justify-between"><span className="text-xs font-bold uppercase text-slate-500">Avatar</span><span className="font-black text-white capitalize">{formData.avatar}</span></div>
-                <div className="flex justify-between"><span className="text-xs font-bold uppercase text-slate-500">Plan</span><span className="font-black text-white capitalize">{planChoice}</span></div>
-              </div>
-              <button onClick={() => setStep(1)} className="w-full flex items-center justify-center gap-2 text-xs font-bold text-slate-400 hover:text-white uppercase"><Edit3 size={14} /> Change details</button>
-            </div>
-          )}
-        </AnimatePresence>
-
-        {validationError && <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="mt-4 flex items-center justify-center gap-2 text-xs font-bold text-red-400"><AlertCircle size={14} /> {validationError}</motion.div>}
-
-        <div className="mt-8">
-          {step < 5 && <button onClick={nextStep} className="w-full rounded-xl bg-white py-4 font-black text-black hover:bg-slate-200">Continue</button>}
-          {step === 5 && <button onClick={handleUsernameStep} disabled={checkingUsername} className="w-full rounded-xl bg-white py-4 font-black text-black hover:bg-slate-200 disabled:opacity-50">{checkingUsername ? "Verifying..." : "Continue"}</button>}
-          {step >= 6 && step <= 8 && <button onClick={nextStep} className="w-full rounded-xl bg-white py-4 font-black text-black hover:bg-slate-200">{step === 8 ? "Review Profile" : "Continue"}</button>}
-          {step === 9 && (
-            <div className="w-full flex flex-col gap-3">
-              <button onClick={finishSignup} disabled={loading} className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-emerald-500 py-4 font-black text-white">
-                {loading ? "Saving..." : <span className="inline-flex items-center gap-2"><UserCheck size={20} /> Start 7-Day Trial</span>}
-              </button>
-              <p className="text-center text-xs font-bold text-slate-500">After trial: {planChoice === "yearly" ? "$100/year standard" : "$10/month"} unless canceled.</p>
-            </div>
-          )}
-        </div>
-      </motion.div>
-    </div>
+    </main>
   )
 }
-
