@@ -7,7 +7,7 @@ import { differenceInDays } from "date-fns";
 import AvatarPicker from "@/components/AvatarPicker";
 import LevelCompanion from "@/components/LevelCompanion";
 import CharacterPortrait from "@/components/CharacterPortrait";
-import { getCharacterLevel, getCharacterShop, MAX_CHARACTER_LEVEL, SHOP_CATEGORIES } from "@/lib/characters";
+import { getCharacter, getCharacterLevel, getCharacterShop, MAX_CHARACTER_LEVEL, SHOP_CATEGORIES } from "@/lib/characters";
 import { awardAdTokens, getCharacterProgress, getCharacterState, initializeCharacterProgress, purchaseUpgrade } from "@/lib/characterProgress";
 import InstallPrompt from "@/components/InstallPrompt";
 import NotificationManager from "@/components/NotificationManager";
@@ -162,14 +162,18 @@ export default function Profile() {
   if (loading) return <div className="min-h-screen flex items-center justify-center dark:bg-slate-950"><Loader2 className="animate-spin text-blue-500 w-8 h-8" /></div>;
   if (!profile) return null;
   const activeCharacterId = profile.avatar || "panda";
+  const activeCharacter = getCharacter(activeCharacterId);
   const progress = getCharacterProgress(userId, activeCharacterId);
   const shop = getCharacterShop(activeCharacterId);
   const categoryItems = shop[shopCategory] || [];
+  const activeCategory = SHOP_CATEGORIES.find((category) => category.id === shopCategory);
   const previewItem = selectedShopItem || categoryItems[0];
   const previewEquipped = previewItem ? [...new Set([...progress.equipped, previewItem.id])] : progress.equipped;
   const previewXP = showMaxPreview ? MAX_CHARACTER_LEVEL : progress.xp;
   const previewOwned = previewItem ? progress.owned.includes(previewItem.id) : false;
   const previewEquippedAlready = previewItem ? progress.equipped.includes(previewItem.id) : false;
+  const categoryOwnedCount = categoryItems.filter((item) => progress.owned.includes(item.id)).length;
+  const unlockPercent = categoryItems.length ? Math.round((categoryOwnedCount / categoryItems.length) * 100) : 0;
 
   return (
     <div className="p-5 pt-10 pb-32 max-w-md mx-auto bg-slate-50 dark:bg-slate-950 min-h-screen transition-colors">
@@ -196,13 +200,18 @@ export default function Profile() {
 
       {activeTab === "overview" && (
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center gap-4 mb-8">
-        <div className="w-full rounded-3xl border border-slate-200 bg-white p-4 dark:border-white/5 dark:bg-slate-900">
+        <div className="w-full overflow-hidden rounded-3xl border border-slate-200 bg-white dark:border-white/5 dark:bg-slate-900">
+          <div className="h-2" style={{ background: `linear-gradient(90deg, ${activeCharacter.accent}, ${activeCharacter.dark})` }} />
+          <div className="p-4">
           <div className="flex items-center gap-3">
             <CharacterPortrait characterId={activeCharacterId} size={72} className="border border-white/20 shadow-lg" />
             <div className="flex-1">
               <p className="text-xs font-black uppercase tracking-wider text-slate-500">Active Character</p>
               <p className="text-lg font-black text-slate-900 dark:text-white capitalize">{activeCharacterId}</p>
-              <p className="text-xs font-bold text-slate-500">Locker styles and level form sync in real time.</p>
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                <span className="rounded-full px-2 py-1 text-[10px] font-black uppercase tracking-wider text-white" style={{ backgroundColor: activeCharacter.accent }}>{activeCharacter.rank}</span>
+                <span className="text-xs font-bold text-slate-500">Level {getCharacterLevel(progress.xp)}</span>
+              </div>
             </div>
             <button
               type="button"
@@ -215,6 +224,10 @@ export default function Profile() {
             >
               <Edit2 size={16} />
             </button>
+          </div>
+          <p className="mt-4 rounded-2xl bg-slate-50 p-3 text-xs font-bold leading-5 text-slate-600 dark:bg-slate-950 dark:text-slate-300">
+            Locker styles, character XP, and max-form previews stay aligned to {activeCharacter.name}.
+          </p>
           </div>
         </div>
         <LevelCompanion
@@ -258,10 +271,11 @@ export default function Profile() {
 
       {activeTab === "locker" && (
       <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="mb-6 bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200 dark:border-white/5 shadow-xl space-y-5">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-black text-slate-900 dark:text-white">Character Shop</h2>
-            <p className="text-xs font-bold text-slate-500">One daily exercise log earns one token.</p>
+            <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">Locker</p>
+            <h2 className="text-lg font-black text-slate-900 dark:text-white">{activeCharacter.name} Shop</h2>
+            <p className="text-xs font-bold text-slate-500">{activeCharacter.rank} cosmetics and progression gear.</p>
           </div>
           <div className="flex items-center gap-2 rounded-full bg-amber-400/15 px-3 py-1 text-sm font-black text-amber-600 dark:text-amber-300">
             <Coins size={16} /> {characterState?.tokens || 0}
@@ -289,7 +303,7 @@ export default function Profile() {
           {[
             ["Owned", progress.owned.length],
             ["Equipped", progress.equipped.length],
-            ["Tokens", characterState?.tokens || 0],
+            ["Category", `${unlockPercent}%`],
           ].map(([label, value]) => (
             <div key={label} className="rounded-2xl bg-slate-50 p-3 dark:bg-slate-950">
               <p className="text-lg font-black text-slate-900 dark:text-white">{value}</p>
@@ -317,15 +331,26 @@ export default function Profile() {
                 setShopCategory(category.id);
                 setSelectedShopItem(null);
               }}
-              className={`rounded-xl px-4 py-2 text-xs font-black uppercase tracking-wider ${shopCategory === category.id ? "bg-slate-950 text-white dark:bg-white dark:text-slate-950" : "bg-slate-100 text-slate-500 dark:bg-slate-800"}`}
+              className={`shrink-0 rounded-xl px-4 py-2 text-left text-xs font-black uppercase tracking-wider ${shopCategory === category.id ? "bg-slate-950 text-white dark:bg-white dark:text-slate-950" : "bg-slate-100 text-slate-500 dark:bg-slate-800"}`}
             >
-              {category.name}
+              <span className="block">{category.name}</span>
+              <span className="mt-0.5 block text-[9px] opacity-60">{(shop[category.id] || []).filter((item) => progress.owned.includes(item.id)).length}/{(shop[category.id] || []).length}</span>
             </button>
           ))}
         </div>
 
         {previewItem && (
-          <div className="grid grid-cols-[120px_1fr] gap-4 rounded-3xl bg-slate-50 p-4 dark:bg-slate-950">
+          <div className="overflow-hidden rounded-3xl bg-slate-50 dark:bg-slate-950">
+            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-800">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">{activeCategory?.name || "Gear"} Preview</p>
+                <p className="text-sm font-black text-slate-900 dark:text-white">{categoryOwnedCount}/{categoryItems.length} unlocked</p>
+              </div>
+              <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-wider ${previewOwned ? "bg-emerald-400/15 text-emerald-600 dark:text-emerald-300" : "bg-amber-400/15 text-amber-700 dark:text-amber-300"}`}>
+                {previewOwned ? "Owned" : `${previewItem.cost} tokens`}
+              </span>
+            </div>
+            <div className="grid grid-cols-[120px_1fr] gap-4 p-4">
             <div className={`relative overflow-hidden rounded-2xl ${previewOwned ? "" : "grayscale"}`}>
               <LevelCompanion
                 totalXP={profile.total_xp || 0}
@@ -338,7 +363,7 @@ export default function Profile() {
             </div>
             <div className="flex min-w-0 flex-col justify-center">
               <p className="font-black text-slate-900 dark:text-white">{previewItem.name}</p>
-              <p className="mt-1 text-xs font-bold leading-5 text-slate-500">{previewOwned ? "Unlocked style. Equip it to update your character." : "Locked preview. Buy it with daily training tokens."}</p>
+              <p className="mt-1 text-xs font-bold leading-5 text-slate-500">{previewOwned ? `Unlocked ${activeCharacter.name} style. Equip it to update your character.` : "Locked preview. Buy it with daily training tokens."}</p>
               <button
                 type="button"
                 onClick={() => handleUpgrade(previewItem.id)}
@@ -347,6 +372,7 @@ export default function Profile() {
               >
                 {previewEquippedAlready ? "Equipped" : previewOwned ? "Equip" : `Buy ${previewItem.cost} Tokens`}
               </button>
+            </div>
             </div>
           </div>
         )}
@@ -376,7 +402,12 @@ export default function Profile() {
                   </div>
                   {!owned && <div className="absolute inset-0 flex items-center justify-center bg-slate-950/60 text-[10px] font-black uppercase text-white">Locked</div>}
                 </div>
-                <p className="mt-2 truncate text-[10px] font-black uppercase tracking-wider text-slate-500">{equipped ? "Equipped" : item.name}</p>
+                <div className="mt-2 min-h-9">
+                  <p className="truncate text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-400">{item.name}</p>
+                  <p className={`text-[9px] font-black uppercase tracking-wider ${equipped ? "text-emerald-500" : owned ? "text-cyan-500" : "text-amber-500"}`}>
+                    {equipped ? "Equipped" : owned ? "Owned" : `${item.cost} tokens`}
+                  </p>
+                </div>
               </button>
             );
           })}

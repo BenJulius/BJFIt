@@ -5,6 +5,7 @@ import { getLevelState } from "@/lib/progression";
 import { getCharacter, getCharacterLevel, getCharacterShop, getPhysiqueStage, MAX_CHARACTER_LEVEL } from "@/lib/characters";
 import { getCharacterVisuals } from "@/lib/characterVisuals";
 import { useState } from "react";
+import CleanCharacterImage from "@/components/CleanCharacterImage";
 
 export default function LevelCompanion({
   totalXP = 0,
@@ -64,7 +65,7 @@ export default function LevelCompanion({
         {!imageModeFailed && (
           <div className="relative">
           <div className="absolute inset-x-8 bottom-4 top-8 rounded-full" style={{ background: `radial-gradient(circle, ${character.accent}1f, transparent 66%)` }} />
-          <img
+          <CleanCharacterImage
             src={visuals.body}
             alt={`${character.name} body`}
             className="relative h-full w-full object-contain drop-shadow-2xl"
@@ -191,9 +192,9 @@ export default function LevelCompanion({
         {!imageModeFailed && (
           <div className="mb-2 rounded-xl border border-white/10 bg-black/30 p-1.5">
             <div className="relative h-10 overflow-hidden rounded-lg">
-              <img src={`/characters/${characterId}/body-max.png`} alt={`${character.name} max form`} className="absolute inset-0 h-full w-full object-contain opacity-25 grayscale" onError={(event) => { event.currentTarget.style.display = "none"; }} />
+              <CleanCharacterImage src={`/characters/${characterId}/body-max.png`} alt={`${character.name} max form`} className="absolute inset-0 h-full w-full object-contain opacity-25 grayscale" />
               <div className="absolute inset-y-0 left-0 overflow-hidden" style={{ width: `${progressPercent}%` }}>
-                <img src={visuals.body} alt={`${character.name} current form`} className="h-full w-full object-contain" onError={(event) => { event.currentTarget.style.display = "none"; }} />
+                <CleanCharacterImage src={visuals.body} alt={`${character.name} current form`} className="h-full w-full object-contain" />
               </div>
             </div>
           </div>
