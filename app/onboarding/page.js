@@ -7,9 +7,11 @@ import CharacterPortrait from "@/components/CharacterPortrait"
 import { supabase } from "@/lib/supabase"
 import { getCharacter } from "@/lib/characters"
 import {
+  EXPERIENCE_OPTIONS,
   GOAL_OPTIONS,
   ONBOARDING_STEPS,
   PLAN_OPTIONS,
+  SCHEDULE_OPTIONS,
   TRAINING_STYLES,
   buildHandleSuggestions,
   getStepProgress,
@@ -77,6 +79,8 @@ export default function Onboarding() {
     username: "",
     avatar: "panda",
     trainingStyle: "balanced",
+    experienceLevel: "",
+    trainingDays: "",
     planChoice: "yearly",
   })
   const [loading, setLoading] = useState(false)
@@ -94,9 +98,14 @@ export default function Onboarding() {
 
   const coachLine = useMemo(() => {
     if (step === 1) return "Your training arc starts here."
-    if (step === 2) return `${activeCharacter.name} is ready to calibrate.`
-    if (step === 6) return premiumSelected ? "Premium trial details are transparent before checkout." : "Free mode keeps setup fast."
-    if (step === 7) return "Review once, then launch."
+    if (step === 2) return "Choose the result you want first. We tailor everything from that."
+    if (step === 3) return "Experience calibration keeps progression realistic from day one."
+    if (step === 4) return "Your weekly availability drives the structure of your plan."
+    if (step === 5) return "Baseline details sharpen your coaching recommendations."
+    if (step === 6) return "Starter plan preview generated from your answers."
+    if (step === 7) return premiumSelected ? "Premium trial details are transparent before checkout." : "Free mode keeps setup fast."
+    if (step === 8) return `${activeCharacter.name} is ready to train with you.`
+    if (step === 10) return "Review once, then launch."
     return "A tighter setup creates better daily guidance."
   }, [activeCharacter.name, premiumSelected, step])
 
@@ -129,7 +138,7 @@ export default function Onboarding() {
 
   const handleUsernameStep = async () => {
     setValidationError("")
-    const error = validateOnboardingStep(5, formData)
+    const error = validateOnboardingStep(9, formData)
     if (error) {
       setValidationError(error)
       return
@@ -139,13 +148,13 @@ export default function Onboarding() {
     const { data } = await supabase.from("profiles").select("id").eq("username", formData.username).maybeSingle()
     setCheckingUsername(false)
     if (data) return setValidationError("That handle is already taken.")
-    setStep(6)
+    setStep(10)
   }
 
   const finishSignup = async () => {
     setValidationError("")
     if (premiumSelected && !acceptTrialTerms) {
-      setStep(6)
+      setStep(7)
       setValidationError("Confirm the 7-day trial and renewal terms before starting premium.")
       return
     }
@@ -290,20 +299,10 @@ export default function Onboarding() {
                 )}
 
                 {step === 2 && (
-                  <motion.div key="character" {...cardMotion} className="space-y-5 pt-8 sm:pt-6">
-                    <div className="text-center">
-                      <h2 className="text-3xl font-black">Choose your coach avatar.</h2>
-                      <p className="mt-2 text-sm font-semibold leading-6 text-slate-400">This becomes the visual center of your profile, shop, and progression loop.</p>
-                    </div>
-                    <AvatarPicker selectedAvatar={formData.avatar} onSelect={(id) => updateForm({ avatar: id })} />
-                  </motion.div>
-                )}
-
-                {step === 3 && (
                   <motion.div key="goal" {...cardMotion} className="space-y-5 pt-8 sm:pt-6">
                     <div className="text-center">
-                      <h2 className="text-3xl font-black">Calibrate the mission.</h2>
-                      <p className="mt-2 text-sm font-semibold leading-6 text-slate-400">Choose the outcome BJ Fit should bias toward when it ranks your next actions.</p>
+                      <h2 className="text-3xl font-black">What is your primary goal?</h2>
+                      <p className="mt-2 text-sm font-semibold leading-6 text-slate-400">We shape your starter plan and coaching around this.</p>
                     </div>
                     <div className="grid gap-3">
                       {GOAL_OPTIONS.map((goal) => (
@@ -321,11 +320,53 @@ export default function Onboarding() {
                   </motion.div>
                 )}
 
+                {step === 3 && (
+                  <motion.div key="experience" {...cardMotion} className="space-y-5 pt-8 sm:pt-6">
+                    <div className="text-center">
+                      <h2 className="text-3xl font-black">How experienced are you?</h2>
+                      <p className="mt-2 text-sm font-semibold leading-6 text-slate-400">This keeps progression realistic and safe.</p>
+                    </div>
+                    <div className="grid gap-3">
+                      {EXPERIENCE_OPTIONS.map((item) => (
+                        <OptionCard
+                          key={item.id}
+                          selected={formData.experienceLevel === item.id}
+                          title={item.title}
+                          description={item.description}
+                          icon={<Target size={18} />}
+                          onClick={() => updateForm({ experienceLevel: item.id })}
+                        />
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+
                 {step === 4 && (
+                  <motion.div key="schedule" {...cardMotion} className="space-y-5 pt-8 sm:pt-6">
+                    <div className="text-center">
+                      <h2 className="text-3xl font-black">How many days can you train?</h2>
+                      <p className="mt-2 text-sm font-semibold leading-6 text-slate-400">We build your weekly structure from this.</p>
+                    </div>
+                    <div className="grid gap-3">
+                      {SCHEDULE_OPTIONS.map((item) => (
+                        <OptionCard
+                          key={item.id}
+                          selected={formData.trainingDays === item.id}
+                          title={item.title}
+                          description="Consistent schedule beats perfect plans."
+                          icon={<Zap size={18} />}
+                          onClick={() => updateForm({ trainingDays: item.id })}
+                        />
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+
+                {step === 5 && (
                   <motion.div key="baseline" {...cardMotion} className="space-y-5 pt-8 sm:pt-6">
                     <div className="text-center">
-                      <h2 className="text-3xl font-black">Set the baseline.</h2>
-                      <p className="mt-2 text-sm font-semibold leading-6 text-slate-400">Two inputs keep progress tracking useful without slowing down setup.</p>
+                      <h2 className="text-3xl font-black">Set your baseline.</h2>
+                      <p className="mt-2 text-sm font-semibold leading-6 text-slate-400">Used only to personalize progression context.</p>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <label className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
@@ -340,50 +381,24 @@ export default function Onboarding() {
                         </div>
                       </label>
                     </div>
-                    <div className="grid gap-3">
-                      {TRAINING_STYLES.map((style) => (
-                        <OptionCard
-                          key={style.id}
-                          selected={formData.trainingStyle === style.id}
-                          title={style.title}
-                          description={style.description}
-                          icon={<Zap size={18} />}
-                          onClick={() => updateForm({ trainingStyle: style.id })}
-                        />
-                      ))}
-                    </div>
-                  </motion.div>
-                )}
-
-                {step === 5 && (
-                  <motion.div key="handle" {...cardMotion} className="space-y-5 pt-8 sm:pt-6">
-                    <div className="text-center">
-                      <h2 className="text-3xl font-black">Claim your handle.</h2>
-                      <p className="mt-2 text-sm font-semibold leading-6 text-slate-400">Keep it short. It will anchor your profile and future sharing surfaces.</p>
-                    </div>
-                    <div className="flex items-center rounded-2xl border border-white/10 bg-white/[0.04] p-4 focus-within:border-emerald-300">
-                      <span className="pr-2 text-xl font-black text-slate-500">@</span>
-                      <input
-                        type="text"
-                        value={formData.username}
-                        onChange={(e) => updateForm({ username: normalizeHandle(e.target.value) })}
-                        placeholder="username"
-                        className="w-full bg-transparent text-xl font-black text-white outline-none placeholder:text-slate-700"
-                      />
-                    </div>
-                    {suggestions.length > 0 && (
-                      <div className="flex flex-wrap justify-center gap-2">
-                        {suggestions.map((suggestion) => (
-                          <button key={suggestion} type="button" onClick={() => updateForm({ username: suggestion })} className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-2 text-xs font-black text-emerald-200">
-                            @{suggestion}
-                          </button>
-                        ))}
-                      </div>
-                    )}
                   </motion.div>
                 )}
 
                 {step === 6 && (
+                  <motion.div key="preview" {...cardMotion} className="space-y-5 pt-8 sm:pt-6">
+                    <div className="text-center">
+                      <h2 className="text-3xl font-black">Your starter plan is ready.</h2>
+                      <p className="mt-2 text-sm font-semibold leading-6 text-slate-400">Built from your goal, experience, and weekly schedule.</p>
+                    </div>
+                    <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
+                      <div className="flex justify-between text-xs font-black uppercase tracking-wider text-slate-500"><span>Primary focus</span><span>{formData.goal?.replace("_", " ") || "Goal"}</span></div>
+                      <div className="mt-3 flex justify-between text-xs font-black uppercase tracking-wider text-slate-500"><span>Weekly target</span><span>{formData.trainingDays || "3"} sessions</span></div>
+                      <div className="mt-3 flex justify-between text-xs font-black uppercase tracking-wider text-slate-500"><span>Coach style</span><span>{formData.trainingStyle}</span></div>
+                    </div>
+                  </motion.div>
+                )}
+
+                {step === 7 && (
                   <motion.div key="premium" {...cardMotion} className="space-y-5 pt-8 sm:pt-6">
                     <div className="text-center">
                       <span className="mx-auto inline-flex items-center gap-2 rounded-full border border-purple-300/30 bg-purple-300/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-purple-200">
@@ -417,7 +432,45 @@ export default function Onboarding() {
                   </motion.div>
                 )}
 
-                {step === 7 && (
+                {step === 8 && (
+                  <motion.div key="character" {...cardMotion} className="space-y-5 pt-8 sm:pt-6">
+                    <div className="text-center">
+                      <h2 className="text-3xl font-black">Choose your coach avatar.</h2>
+                      <p className="mt-2 text-sm font-semibold leading-6 text-slate-400">This becomes the visual center of your profile, shop, and progression loop.</p>
+                    </div>
+                    <AvatarPicker selectedAvatar={formData.avatar} onSelect={(id) => updateForm({ avatar: id })} />
+                  </motion.div>
+                )}
+
+                {step === 9 && (
+                  <motion.div key="handle" {...cardMotion} className="space-y-5 pt-8 sm:pt-6">
+                    <div className="text-center">
+                      <h2 className="text-3xl font-black">Claim your handle.</h2>
+                      <p className="mt-2 text-sm font-semibold leading-6 text-slate-400">Keep it short. It will anchor your profile and future sharing surfaces.</p>
+                    </div>
+                    <div className="flex items-center rounded-2xl border border-white/10 bg-white/[0.04] p-4 focus-within:border-emerald-300">
+                      <span className="pr-2 text-xl font-black text-slate-500">@</span>
+                      <input
+                        type="text"
+                        value={formData.username}
+                        onChange={(e) => updateForm({ username: normalizeHandle(e.target.value) })}
+                        placeholder="username"
+                        className="w-full bg-transparent text-xl font-black text-white outline-none placeholder:text-slate-700"
+                      />
+                    </div>
+                    {suggestions.length > 0 && (
+                      <div className="flex flex-wrap justify-center gap-2">
+                        {suggestions.map((suggestion) => (
+                          <button key={suggestion} type="button" onClick={() => updateForm({ username: suggestion })} className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-2 text-xs font-black text-emerald-200">
+                            @{suggestion}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </motion.div>
+                )}
+
+                {step === 10 && (
                   <motion.div key="review" {...cardMotion} className="space-y-5 pt-8 sm:pt-6">
                     <div className="text-center">
                       <h2 className="text-3xl font-black">Ready to launch.</h2>
@@ -434,6 +487,8 @@ export default function Onboarding() {
                       <div className="mt-5 grid gap-3 text-sm">
                         <div className="flex justify-between gap-4"><span className="font-bold text-slate-500">Goal</span><span className="font-black text-white">{activeGoal?.title || "Not set"}</span></div>
                         <div className="flex justify-between gap-4"><span className="font-bold text-slate-500">Style</span><span className="font-black text-white">{activeStyle?.title || "Balanced"}</span></div>
+                        <div className="flex justify-between gap-4"><span className="font-bold text-slate-500">Experience</span><span className="font-black text-white">{formData.experienceLevel || "Intermediate"}</span></div>
+                        <div className="flex justify-between gap-4"><span className="font-bold text-slate-500">Training days</span><span className="font-black text-white">{formData.trainingDays || "3"}</span></div>
                         <div className="flex justify-between gap-4"><span className="font-bold text-slate-500">Plan</span><span className="font-black text-white">{activePlan.title}</span></div>
                         <div className="flex justify-between gap-4"><span className="font-bold text-slate-500">Trial</span><span className="text-right font-black text-white">{premiumSelected ? "7 days before billing" : "Not selected"}</span></div>
                       </div>
@@ -452,22 +507,22 @@ export default function Onboarding() {
               )}
 
               <div className="mt-7">
-                {step < 5 && (
+                {step < 9 && step !== 7 && (
                   <button type="button" onClick={nextStep} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-white py-4 font-black text-slate-950 transition hover:bg-slate-200">
                     Continue <ArrowRight size={18} />
                   </button>
                 )}
-                {step === 5 && (
+                {step === 9 && (
                   <button type="button" onClick={handleUsernameStep} disabled={checkingUsername} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-white py-4 font-black text-slate-950 transition hover:bg-slate-200 disabled:opacity-50">
                     {checkingUsername ? "Checking handle..." : "Continue"} <ArrowRight size={18} />
                   </button>
                 )}
-                {step === 6 && (
+                {step === 7 && (
                   <button type="button" onClick={nextStep} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-white py-4 font-black text-slate-950 transition hover:bg-slate-200">
                     {premiumSelected ? "Review trial setup" : "Continue free"} <ArrowRight size={18} />
                   </button>
                 )}
-                {step === 7 && (
+                {step === 10 && (
                   <div className="space-y-3">
                     <button type="button" onClick={finishSignup} disabled={loading} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-400 to-cyan-300 py-4 font-black text-slate-950 shadow-lg shadow-emerald-500/20 transition active:scale-[0.99] disabled:opacity-60">
                       {loading ? "Saving setup..." : <><UserCheck size={20} /> {premiumSelected ? "Start 7-Day Trial" : "Enter BJ Fit"}</>}
