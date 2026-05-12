@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { motion } from "framer-motion";
-import { Activity, ArrowRight, Dumbbell, Loader2, LogIn, Plus, Shield, Sparkles, Trophy, UserCircle, UserPlus } from "lucide-react";
+import { Activity, ArrowRight, Dumbbell, Flame, Loader2, LogIn, Plus, Shield, Sparkles, Trophy, UserCircle, UserPlus } from "lucide-react";
 import LevelCompanion from "@/components/LevelCompanion";
 import { getLevelState, getWorkoutSummary, getWorkoutVolume } from "@/lib/progression";
 import { getCharacterState, getCharacterProgress, initializeCharacterProgress } from "@/lib/characterProgress";
@@ -79,6 +79,16 @@ export default function Dashboard() {
   const summary = useMemo(() => getWorkoutSummary(workouts), [workouts]);
   const levelState = useMemo(() => getLevelState(profile?.total_xp || 0), [profile?.total_xp]);
   const recentWorkouts = workouts.slice(0, 4);
+  const todayWorkouts = useMemo(() => workouts.filter((workout) => String(workout.created_at || "").startsWith(new Date().toISOString().slice(0, 10))), [workouts]);
+  const topExercises = useMemo(() => {
+    const tally = workouts.reduce((acc, workout) => {
+      if (!workout.exercise) return acc;
+      acc[workout.exercise] = (acc[workout.exercise] || 0) + 1;
+      return acc;
+    }, {});
+    return Object.entries(tally).sort((a, b) => b[1] - a[1]).slice(0, 4);
+  }, [workouts]);
+  const todayVolume = useMemo(() => todayWorkouts.reduce((sum, workout) => sum + getWorkoutVolume(workout), 0), [todayWorkouts]);
   const bestVolumeSet = useMemo(() => [...workouts].sort((a, b) => getWorkoutVolume(b) - getWorkoutVolume(a))[0], [workouts]);
   const questProgress = Math.min(100, Math.round((Math.min(summary.totalSets, 12) / 12) * 100));
   const activeCharacterId = profile?.avatar || "panda";
@@ -129,8 +139,8 @@ export default function Dashboard() {
   if (!profile) return null;
 
   return (
-    <div className="min-h-screen bg-slate-100 px-5 pb-32 pt-8 text-slate-950 dark:bg-slate-950 dark:text-white">
-      <div className="mx-auto max-w-md space-y-5">
+    <div className="min-h-screen bg-slate-100 px-4 pb-32 pt-6 text-slate-950 dark:bg-slate-950 dark:text-white">
+      <div className="mx-auto max-w-md space-y-4">
         <motion.header initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
           <div>
             <p className="text-xs font-black uppercase tracking-widest text-emerald-500">Workout Quest</p>
@@ -149,47 +159,49 @@ export default function Dashboard() {
           equipped={activeProgress.equipped}
         />
 
-        <section className="rounded-2xl border border-emerald-200 bg-white p-5 shadow-sm dark:border-emerald-400/20 dark:bg-slate-900">
-          <div className="mb-4 flex items-center justify-between">
+        <section className="rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm dark:border-emerald-400/20 dark:bg-slate-900">
+          <div className="mb-3 flex items-center justify-between">
             <div>
               <p className="text-xs font-black uppercase tracking-wider text-emerald-500">Command Center</p>
-              <h2 className="text-xl font-black">{readiness.label}</h2>
+              <h2 className="text-lg font-black">{readiness.label}</h2>
             </div>
-            <div className="flex h-16 w-16 flex-col items-center justify-center rounded-2xl bg-emerald-400/15 text-emerald-600 dark:text-emerald-300">
-              <span className="text-2xl font-black">{readiness.score}</span>
+            <div className="flex h-14 w-14 flex-col items-center justify-center rounded-2xl bg-emerald-400/15 text-emerald-600 dark:text-emerald-300">
+              <span className="text-xl font-black">{readiness.score}</span>
               <span className="text-[9px] font-black uppercase">Ready</span>
             </div>
           </div>
-          <p className="text-sm font-bold leading-6 text-slate-600 dark:text-slate-300">{readiness.nextAction}</p>
-          <div className="mt-4 grid grid-cols-3 gap-2">
+          <p className="text-sm font-bold leading-5 text-slate-600 dark:text-slate-300">{readiness.nextAction}</p>
+          <div className="mt-3 grid grid-cols-4 gap-2">
             {[
               ["Streak", `${readiness.streak}d`],
               ["Today", readiness.todaySets],
               ["Moves", readiness.uniqueMoves],
+              ["Volume", Math.round(todayVolume)],
             ].map(([label, value]) => (
-              <div key={label} className="rounded-xl bg-slate-100 p-3 dark:bg-slate-950">
-                <p className="text-lg font-black">{value}</p>
+              <div key={label} className="rounded-xl bg-slate-100 p-2 dark:bg-slate-950">
+                <p className="text-base font-black">{value}</p>
                 <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">{label}</p>
               </div>
             ))}
           </div>
         </section>
 
-        <section className="grid grid-cols-3 gap-3">
+        <section className="grid grid-cols-4 gap-2">
           {[
             { label: "Level", value: levelState.level, icon: Trophy },
             { label: "Sets", value: summary.totalSets, icon: Dumbbell },
             { label: "Days", value: summary.activeDays, icon: Activity },
+            { label: "Today", value: todayWorkouts.length, icon: Flame },
           ].map((stat) => (
-            <div key={stat.label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-900">
-              <stat.icon size={18} className="mb-3 text-emerald-500" />
-              <p className="text-2xl font-black">{stat.value}</p>
+            <div key={stat.label} className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-slate-900">
+              <stat.icon size={16} className="mb-2 text-emerald-500" />
+              <p className="text-xl font-black">{stat.value}</p>
               <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">{stat.label}</p>
             </div>
           ))}
         </section>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-slate-900">
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-900">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <h2 className="text-lg font-black">Character Growth</h2>
@@ -211,7 +223,7 @@ export default function Dashboard() {
         <NotificationManager compact />
         <InstallPrompt compact />
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-slate-900">
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-900">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <h2 className="text-lg font-black">Daily Quest</h2>
@@ -228,7 +240,7 @@ export default function Dashboard() {
           </div>
         </section>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-slate-900">
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-900">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-black">Next Move</h2>
             <Sparkles size={20} className="text-amber-400" />
@@ -243,7 +255,28 @@ export default function Dashboard() {
           </Link>
         </section>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-slate-900">
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-900">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-lg font-black">Most Used Exercises</h2>
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Frequency</span>
+          </div>
+          {topExercises.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-slate-300 p-4 text-center text-sm font-bold text-slate-500 dark:border-slate-700">
+              Log sessions to surface movement patterns.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {topExercises.map(([exercise, count]) => (
+                <div key={exercise} className="flex items-center justify-between rounded-xl bg-slate-100 px-3 py-2 dark:bg-slate-950">
+                  <p className="font-black">{exercise}</p>
+                  <span className="text-xs font-black text-slate-500">{count} sets</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-900">
           <h2 className="mb-4 text-lg font-black">Recent Sets</h2>
           {recentWorkouts.length === 0 ? (
             <div className="rounded-xl border border-dashed border-slate-300 p-5 text-center text-sm font-bold text-slate-500 dark:border-slate-700">

@@ -1,24 +1,42 @@
 "use client";
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Check, Dumbbell, Plus, Search, Sparkles } from "lucide-react";
+import { Check, Clock3, Dumbbell, Heart, Plus, Search, Sparkles, Star } from "lucide-react";
 import {
+  buildRecentExercises,
   buildExerciseOptions,
   canCreateExercise,
   filterExerciseOptions,
   normalizeExerciseName,
+  rankExerciseOptions,
 } from "@/lib/exercisePicker";
 
-export default function ExercisePicker({ exercises = [], selectedExercise = "", onSelect, label = "Exercise" }) {
+export default function ExercisePicker({
+  exercises = [],
+  workouts = [],
+  selectedExercise = "",
+  favoriteExercises = [],
+  onSelect,
+  onToggleFavorite,
+  label = "Exercise",
+}) {
   const [query, setQuery] = useState("");
   const options = useMemo(() => buildExerciseOptions(exercises, selectedExercise), [exercises, selectedExercise]);
-  const filteredExercises = useMemo(() => filterExerciseOptions(options, query), [options, query]);
+  const recentExercises = useMemo(() => buildRecentExercises(workouts), [workouts]);
+  const rankedOptions = useMemo(() => rankExerciseOptions(options, favoriteExercises, recentExercises), [options, favoriteExercises, recentExercises]);
+  const filteredExercises = useMemo(() => filterExerciseOptions(rankedOptions, query), [rankedOptions, query]);
   const canCreate = canCreateExercise(options, query);
+  const favoriteSet = useMemo(() => new Set(favoriteExercises.map((name) => normalizeExerciseName(name).toLowerCase())), [favoriteExercises]);
 
   const choose = (name) => {
     onSelect(normalizeExerciseName(name));
     setQuery("");
   };
+
+  const quickPick = query ? [] : [...new Set([...favoriteExercises, ...recentExercises])]
+    .map((name) => normalizeExerciseName(name))
+    .filter(Boolean)
+    .slice(0, 8);
 
   return (
     <div className="space-y-3">
@@ -51,6 +69,32 @@ export default function ExercisePicker({ exercises = [], selectedExercise = "", 
         />
       </div>
 
+      {quickPick.length > 0 && (
+        <div className="space-y-2">
+          <p className="px-1 text-[10px] font-black uppercase tracking-widest text-slate-500">Quick picks</p>
+          <div className="flex flex-wrap gap-2">
+            {quickPick.map((name) => {
+              const isFavorite = favoriteSet.has(name.toLowerCase());
+              return (
+                <button
+                  key={name}
+                  type="button"
+                  onClick={() => choose(name)}
+                  className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-black transition ${
+                    isFavorite
+                      ? "bg-rose-500/15 text-rose-500 dark:text-rose-300"
+                      : "bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                  }`}
+                >
+                  {isFavorite ? <Star size={12} /> : <Clock3 size={12} />}
+                  {name}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <div className="max-h-56 overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50 p-2 dark:border-slate-800 dark:bg-slate-950">
         {canCreate && (
           <button
@@ -66,6 +110,7 @@ export default function ExercisePicker({ exercises = [], selectedExercise = "", 
         <div className="grid grid-cols-1 gap-2">
           {filteredExercises.map((exercise) => {
             const active = selectedExercise === exercise.name;
+            const isFavorite = favoriteSet.has(normalizeExerciseName(exercise.name).toLowerCase());
             return (
               <button
                 key={exercise.id || exercise.name}
@@ -83,7 +128,30 @@ export default function ExercisePicker({ exercises = [], selectedExercise = "", 
                   </span>
                   <span>{exercise.name}</span>
                 </span>
-                {active && <span className="text-[10px] font-black uppercase tracking-wider">Active</span>}
+                <span className="flex items-center gap-2">
+                  {onToggleFavorite && (
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        onToggleFavorite(exercise.name);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          onToggleFavorite(exercise.name);
+                        }
+                      }}
+                      className={`rounded-lg p-1 ${isFavorite ? "text-rose-500 dark:text-rose-300" : "text-slate-400 dark:text-slate-500"}`}
+                    >
+                      <Heart size={14} fill={isFavorite ? "currentColor" : "none"} />
+                    </span>
+                  )}
+                  {active && <span className="text-[10px] font-black uppercase tracking-wider">Active</span>}
+                </span>
               </button>
             );
           })}

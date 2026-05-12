@@ -1,375 +1,362 @@
 "use client";
-import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
-import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Save, History, Trash2, Dumbbell, X, CheckCircle2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { motion } from "framer-motion";
+import { CheckCircle2, Clock3, Plus, Save, Trash2 } from "lucide-react";
 import { isSameDay, parseISO } from "date-fns";
-import { XP_PER_SET, XP_SESSION_BONUS } from "@/lib/progression";
+import { supabase } from "@/lib/supabase";
 import ExercisePicker from "@/components/ExercisePicker";
+import { XP_PER_SET, XP_SESSION_BONUS, getWorkoutVolume } from "@/lib/progression";
 import { awardDailyCharacterProgress } from "@/lib/characterProgress";
+import { normalizeExerciseName, toggleFavoriteExercise } from "@/lib/exercisePicker";
+
+const FAVORITES_KEY = "bj-fit-favorite-exercises-v1";
+
+function createEmptySet() {
+  return { weight: "", reps: "" };
+}
+
+function mapWorkoutsByExercise(workouts = []) {
+  return workouts.reduce((groups, workout) => {
+    const name = normalizeExerciseName(workout.exercise);
+    if (!groups[name]) groups[name] = [];
+    groups[name].push(workout);
+    return groups;
+  }, {});
+}
 
 export default function Log() {
-  const [exercises, setExercises] = useState([]);
+  const [allWorkouts, setAllWorkouts] = useState([]);
   const [todaysWorkouts, setTodaysWorkouts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [isLogging, setIsLogging] = useState(false);
+  const [exercises, setExercises] = useState([]);
+  const [favoriteExercises, setFavoriteExercises] = useState([]);
   const [selectedExercise, setSelectedExercise] = useState("");
-  const [sets, setSets] = useState([{ reps: "", weight: "" }]);
+  const [sessionExercises, setSessionExercises] = useState([]);
+  const [sessionStartedAt, setSessionStartedAt] = useState(Date.now());
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const [editingExercise, setEditingExercise] = useState(null);
+  const groupedToday = useMemo(() => mapWorkoutsByExercise(todaysWorkouts), [todaysWorkouts]);
+
+  const sessionSetCount = sessionExercises.reduce((sum, item) => sum + item.sets.length, 0);
+  const sessionVolume = sessionExercises.reduce((sum, item) => sum + item.sets.reduce((setSum, set) => {
+    if (!set.weight || !set.reps) return setSum;
+    return setSum + getWorkoutVolume({ weight: Number(set.weight), reps: Number(set.reps) });
+  }, 0), 0);
+  const elapsedMinutes = Math.max(1, Math.round((Date.now() - sessionStartedAt) / 60000));
+
+  const loadFavorites = () => {
+    if (typeof window === "undefined") return [];
+    try {
+      const parsed = JSON.parse(localStorage.getItem(FAVORITES_KEY) || "[]");
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const persistFavorites = (nextFavorites) => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem(FAVORITES_KEY, JSON.stringify(nextFavorites));
+  };
 
   const fetchData = async () => {
     const [workoutsRes, exercisesRes] = await Promise.all([
-      supabase.from("workouts").select("*").order("created_at", { ascending: true }),
-      supabase.from("exercises").select("*")
+      supabase.from("workouts").select("*").order("created_at", { ascending: false }),
+      supabase.from("exercises").select("*"),
     ]);
-    
-    if (workoutsRes.data) {
-      const today = workoutsRes.data.filter(w => isSameDay(parseISO(w.created_at), new Date()));
-      setTodaysWorkouts(today);
-    }
-    if (exercisesRes.data) setExercises(exercisesRes.data);
-    
+
+    const workoutRows = workoutsRes.data || [];
+    const todayRows = workoutRows.filter((row) => isSameDay(parseISO(row.created_at), new Date()));
+
+    setAllWorkouts(workoutRows);
+    setTodaysWorkouts(todayRows);
+    setExercises(exercisesRes.data || []);
     setLoading(false);
   };
 
   useEffect(() => {
+    setFavoriteExercises(loadFavorites());
     fetchData();
   }, []);
 
-  useEffect(() => {
-    if (!selectedExercise) return;
-    const fetchLastSet = async () => {
-      const { data } = await supabase.from("workouts")
-        .select("reps, weight").eq("exercise", selectedExercise).order("created_at", { ascending: false }).limit(1);
-      if (data && data.length > 0) {
-        setSets([{ reps: data[0].reps.toString(), weight: data[0].weight.toString() }]);
-      } else {
-        setSets([{ reps: "", weight: "" }]);
-      }
-    };
-    fetchLastSet();
-  }, [selectedExercise]);
-
-  const addSet = () => setSets([...sets, { reps: "", weight: "" }]);
-  const removeSet = (index) => sets.length > 1 && setSets(sets.filter((_, i) => i !== index));
-  const updateSet = (index, field, value) => {
-    const newSets = [...sets];
-    newSets[index][field] = value;
-    setSets(newSets);
+  const onToggleFavorite = (exerciseName) => {
+    const next = toggleFavoriteExercise(favoriteExercises, exerciseName);
+    setFavoriteExercises(next);
+    persistFavorites(next);
   };
 
-  const saveNewExercise = async (e) => {
-    e.preventDefault();
+  const addExerciseToSession = () => {
     if (!selectedExercise) return;
-    setSaving(true);
-    const { data: { user } } = await supabase.auth.getUser();
+    const normalized = normalizeExerciseName(selectedExercise);
+    const existingIndex = sessionExercises.findIndex((item) => item.exercise === normalized);
+    if (existingIndex >= 0) return;
 
-    const insertData = sets.filter(s => s.reps && s.weight).map(s => ({
-      user_id: user.id, exercise: selectedExercise, reps: Number(s.reps), weight: Number(s.weight)
-    }));
-    
-    if (insertData.length > 0) {
-      if (!exercises.some(exercise => exercise.name.toLowerCase() === selectedExercise.toLowerCase())) {
-        const { data: createdExercise } = await supabase.from("exercises").insert({ name: selectedExercise }).select().maybeSingle();
-        if (createdExercise) setExercises(prev => [...prev, createdExercise]);
-      }
-
-      await supabase.from("workouts").insert(insertData);
-      
-      const xpAward = (insertData.length * XP_PER_SET) + (todaysWorkouts.length === 0 ? XP_SESSION_BONUS : 0);
-      const { data: profile } = await supabase.from('profiles').select('total_xp, avatar').eq('id', user.id).single();
-      if (profile) {
-        await supabase.from('profiles').update({ total_xp: (profile.total_xp || 0) + xpAward }).eq('id', user.id);
-        if (todaysWorkouts.length === 0) {
-          awardDailyCharacterProgress(user.id, profile.avatar || "panda");
-        }
-      }
-      
-      await fetchData();
-    }
-    
+    const recentSet = (groupedToday[normalized] || [])[0];
+    setSessionExercises((current) => [
+      ...current,
+      {
+        exercise: normalized,
+        sets: [{ weight: recentSet?.weight ? String(recentSet.weight) : "", reps: recentSet?.reps ? String(recentSet.reps) : "" }],
+      },
+    ]);
     setSelectedExercise("");
-    setSets([{ reps: "", weight: "" }]);
-    setIsLogging(false);
+  };
+
+  const removeExerciseFromSession = (exerciseName) => {
+    setSessionExercises((current) => current.filter((item) => item.exercise !== exerciseName));
+  };
+
+  const addSetToDraft = (exerciseName) => {
+    setSessionExercises((current) => current.map((item) => {
+      if (item.exercise !== exerciseName) return item;
+      const previous = item.sets[item.sets.length - 1] || createEmptySet();
+      return { ...item, sets: [...item.sets, { ...previous }] };
+    }));
+  };
+
+  const removeSetFromDraft = (exerciseName, setIndex) => {
+    setSessionExercises((current) => current.map((item) => {
+      if (item.exercise !== exerciseName) return item;
+      if (item.sets.length === 1) return item;
+      return { ...item, sets: item.sets.filter((_, index) => index !== setIndex) };
+    }));
+  };
+
+  const updateDraftSet = (exerciseName, setIndex, field, value) => {
+    setSessionExercises((current) => current.map((item) => {
+      if (item.exercise !== exerciseName) return item;
+      return {
+        ...item,
+        sets: item.sets.map((set, index) => {
+          if (index !== setIndex) return set;
+          return { ...set, [field]: value };
+        }),
+      };
+    }));
+  };
+
+  const queueFromToday = (exerciseName) => {
+    const recentSet = (groupedToday[exerciseName] || [])[0];
+    if (!recentSet) return;
+    const existing = sessionExercises.find((item) => item.exercise === exerciseName);
+    if (existing) {
+      addSetToDraft(exerciseName);
+      return;
+    }
+
+    setSessionExercises((current) => [
+      ...current,
+      {
+        exercise: exerciseName,
+        sets: [{ weight: String(recentSet.weight || ""), reps: String(recentSet.reps || "") }],
+      },
+    ]);
+  };
+
+  const deleteLoggedSet = async (setId) => {
+    setTodaysWorkouts((current) => current.filter((workout) => workout.id !== setId));
+    setAllWorkouts((current) => current.filter((workout) => workout.id !== setId));
+    await supabase.from("workouts").delete().eq("id", setId);
+  };
+
+  const saveSession = async () => {
+    const payload = sessionExercises.flatMap((item) => item.sets
+      .filter((set) => set.weight !== "" && set.reps !== "")
+      .map((set) => ({ exercise: item.exercise, reps: Number(set.reps), weight: Number(set.weight) })));
+
+    if (!payload.length) return;
+    setSaving(true);
+
+    const { data: { user } } = await supabase.auth.getUser();
+    const rows = payload.map((set) => ({ ...set, user_id: user.id }));
+
+    const knownExerciseKeys = new Set(exercises.map((exercise) => normalizeExerciseName(exercise.name).toLowerCase()));
+    const missingExercises = [...new Set(payload.map((set) => set.exercise))].filter((name) => !knownExerciseKeys.has(name.toLowerCase()));
+    if (missingExercises.length > 0) {
+      const { data: created } = await supabase.from("exercises")
+        .insert(missingExercises.map((name) => ({ name })))
+        .select("*");
+      if (created?.length) {
+        setExercises((current) => [...current, ...created]);
+      }
+    }
+
+    await supabase.from("workouts").insert(rows);
+
+    const xpAward = (rows.length * XP_PER_SET) + (todaysWorkouts.length === 0 ? XP_SESSION_BONUS : 0);
+    const { data: profile } = await supabase.from("profiles").select("total_xp, avatar").eq("id", user.id).single();
+    if (profile) {
+      await supabase.from("profiles").update({ total_xp: (profile.total_xp || 0) + xpAward }).eq("id", user.id);
+      if (todaysWorkouts.length === 0) {
+        awardDailyCharacterProgress(user.id, profile.avatar || "panda");
+      }
+    }
+
+    await fetchData();
+    setSessionExercises([]);
+    setSessionStartedAt(Date.now());
     setSaving(false);
   };
-
-  const deleteLoggedSet = async (id) => {
-    const updatedWorkouts = todaysWorkouts.filter(w => w.id !== id);
-    setTodaysWorkouts(updatedWorkouts);
-    
-    if (editingExercise) {
-      const remainingForExercise = updatedWorkouts.filter(w => w.exercise === editingExercise);
-      if (remainingForExercise.length === 0) setEditingExercise(null);
-    }
-
-    await supabase.from("workouts").delete().eq("id", id);
-  };
-
-  const updateLoggedSet = async (id, field, value) => {
-    if (value === "") return; 
-    
-    setTodaysWorkouts(prev => prev.map(w => w.id === id ? { ...w, [field]: Number(value) } : w));
-    await supabase.from("workouts").update({ [field]: Number(value) }).eq("id", id);
-  };
-
-  const updateExerciseName = async (oldName, newName) => {
-    if (!newName || oldName === newName) return;
-    
-    const idsToUpdate = todaysWorkouts.filter(w => w.exercise === oldName).map(w => w.id);
-    
-    setTodaysWorkouts(prev => prev.map(w => w.exercise === oldName ? { ...w, exercise: newName } : w));
-    setEditingExercise(newName);
-    
-    await supabase.from("workouts").update({ exercise: newName }).in("id", idsToUpdate);
-  };
-
-  const addSetToExistingExercise = async (exerciseName) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    const existingSets = todaysWorkouts.filter(w => w.exercise === exerciseName);
-    const lastSet = existingSets[existingSets.length - 1];
-
-    const newSet = {
-      user_id: user.id,
-      exercise: exerciseName,
-      reps: lastSet ? lastSet.reps : 0,
-      weight: lastSet ? lastSet.weight : 0
-    };
-
-    const { data } = await supabase.from("workouts").insert([newSet]).select();
-    if (data && data.length > 0) {
-      setTodaysWorkouts([...todaysWorkouts, data[0]]);
-    }
-  };
-
-  const groupedToday = todaysWorkouts.reduce((acc, workout) => {
-    if (!acc[workout.exercise]) acc[workout.exercise] = [];
-    acc[workout.exercise].push(workout);
-    return acc;
-  }, {});
 
   if (loading) return null;
 
   return (
-    <div className="p-6 pt-12 pb-32 max-w-md mx-auto bg-slate-50 dark:bg-slate-950 min-h-screen transition-colors relative">
-      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white">Active Workout</h1>
-          <p className="text-emerald-500 font-bold text-sm mt-1 flex items-center gap-1">
-            <CheckCircle2 size={14} /> Today's Session
-          </p>
-        </div>
-        {!isLogging && (
-          <button onClick={() => setIsLogging(true)} className="w-12 h-12 bg-blue-500 text-white rounded-full flex items-center justify-center shadow-lg shadow-blue-500/30 hover:scale-105 active:scale-95 transition-all">
-            <Plus size={24} />
-          </button>
-        )}
-      </motion.div>
-
-      <AnimatePresence mode="wait">
-        {!isLogging ? (
-          <motion.div key="daily-view" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
-            {Object.keys(groupedToday).length === 0 ? (
-              <div className="text-center py-12 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-white/5 border-dashed">
-                <Dumbbell className="mx-auto w-12 h-12 text-slate-300 dark:text-slate-600 mb-3" />
-                <h3 className="text-slate-500 dark:text-slate-400 font-medium">No exercises logged yet today.</h3>
-                <button onClick={() => setIsLogging(true)} className="mt-4 px-6 py-2 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold rounded-xl hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-colors">
-                  Start Logging
-                </button>
-              </div>
-            ) : (
-              Object.keys(groupedToday).map((exerciseName) => (
-                <motion.div 
-                  key={exerciseName} 
-                  whileHover={{ scale: 1.01 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => setEditingExercise(exerciseName)}
-                  className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-white/5 shadow-sm cursor-pointer space-y-3 relative overflow-hidden group"
-                >
-                  <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3">
-                    <h3 className="font-black text-lg text-slate-900 dark:text-white">{exerciseName}</h3>
-                    <div className="w-8 h-8 rounded-full bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-400 group-hover:text-blue-500 transition-colors">
-                      <Plus size={16} />
-                    </div>
-                  </div>
-                  
-                  <div className="flex flex-wrap gap-2">
-                    {groupedToday[exerciseName].map((set, index) => (
-                      <div key={set.id} className="bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 px-3 py-2 rounded-xl text-sm flex items-center gap-2">
-                        <span className="text-slate-400 font-bold text-xs">{index + 1}</span>
-                        <span className="font-bold text-slate-700 dark:text-slate-300">
-                          {set.weight} <span className="text-[10px] uppercase text-slate-400 font-medium">lbs</span>
-                        </span>
-                        <span className="text-slate-300 dark:text-slate-600 font-bold">x</span>
-                        <span className="font-bold text-slate-700 dark:text-slate-300">{set.reps}</span>
-                      </div>
-                    ))}
-                  </div>
-                </motion.div>
-              ))
-            )}
-          </motion.div>
-        ) : (
-          <motion.form key="log-form" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }} onSubmit={saveNewExercise} className="space-y-6">
-             <div className="flex justify-between items-center mb-2 px-2">
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white">Add Exercise</h2>
-              <button type="button" onClick={() => setIsLogging(false)} className="p-2 bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-full hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors">
-                <X size={16} />
-              </button>
+    <div className="min-h-screen bg-slate-50 px-4 pb-28 pt-7 text-slate-900 dark:bg-slate-950 dark:text-white">
+      <div className="mx-auto max-w-md space-y-4">
+        <header className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-900">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-widest text-emerald-500">Workout Logger</p>
+              <h1 className="mt-1 text-2xl font-black">Session Builder</h1>
             </div>
+            <div className="rounded-xl bg-slate-100 px-3 py-2 text-right dark:bg-slate-800">
+              <p className="text-sm font-black">{sessionSetCount} sets</p>
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">{elapsedMinutes}m</p>
+            </div>
+          </div>
+          <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+            <div className="rounded-xl bg-slate-100 py-2 dark:bg-slate-800">
+              <p className="text-sm font-black">{sessionExercises.length}</p>
+              <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">Exercises</p>
+            </div>
+            <div className="rounded-xl bg-slate-100 py-2 dark:bg-slate-800">
+              <p className="text-sm font-black">{sessionSetCount}</p>
+              <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">Draft sets</p>
+            </div>
+            <div className="rounded-xl bg-slate-100 py-2 dark:bg-slate-800">
+              <p className="text-sm font-black">{Math.round(sessionVolume)}</p>
+              <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">Volume</p>
+            </div>
+          </div>
+        </header>
 
-            <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-white/5 shadow-xl space-y-5">
-              <ExercisePicker
-                exercises={exercises}
-                selectedExercise={selectedExercise}
-                onSelect={setSelectedExercise}
-                label="Choose Movement"
-              />
+        <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-900">
+          <ExercisePicker
+            exercises={exercises}
+            workouts={allWorkouts}
+            selectedExercise={selectedExercise}
+            favoriteExercises={favoriteExercises}
+            onToggleFavorite={onToggleFavorite}
+            onSelect={setSelectedExercise}
+            label="Search movement"
+          />
+          <button
+            type="button"
+            onClick={addExerciseToSession}
+            disabled={!selectedExercise}
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 py-3 font-black text-white disabled:opacity-40 dark:bg-white dark:text-slate-950"
+          >
+            <Plus size={18} /> Add to session
+          </button>
+        </section>
 
-              <div className="space-y-3">
-                <div className="flex justify-between items-center px-1">
-                  <label className="text-xs font-bold text-slate-500 uppercase">Sets Data</label>
-                  {sets[0]?.weight && <span className="text-[10px] text-emerald-500 flex items-center gap-1"><History size={12}/> Auto-filled</span>}
+        <section className="space-y-3">
+          {sessionExercises.length === 0 ? (
+            <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-6 text-center dark:border-slate-700 dark:bg-slate-900">
+              <Clock3 className="mx-auto mb-2 text-slate-400" size={20} />
+              <p className="text-sm font-bold text-slate-500">Build your session with one or more exercises, then save all sets at once.</p>
+            </div>
+          ) : (
+            sessionExercises.map((item) => (
+              <motion.div key={item.exercise} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-900">
+                <div className="mb-3 flex items-center justify-between">
+                  <div>
+                    <p className="text-lg font-black">{item.exercise}</p>
+                    <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">{item.sets.length} set{item.sets.length === 1 ? "" : "s"}</p>
+                  </div>
+                  <button type="button" onClick={() => removeExerciseFromSession(item.exercise)} className="rounded-xl p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10">
+                    <Trash2 size={16} />
+                  </button>
                 </div>
-                
-                {sets.map((set, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <span className="w-8 text-center text-sm font-bold text-slate-400">{i + 1}</span>
-                    <input className="flex-1 w-full min-w-0 p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl text-center font-bold text-slate-900 dark:text-white focus:border-blue-500 focus:outline-none"
-                      placeholder="Lbs" type="number" required value={set.weight} onChange={(e) => updateSet(i, 'weight', e.target.value)} />
-                    <span className="text-slate-400 font-medium">x</span>
-                    <input className="flex-1 w-full min-w-0 p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl text-center font-bold text-slate-900 dark:text-white focus:border-blue-500 focus:outline-none"
-                      placeholder="Reps" type="number" required value={set.reps} onChange={(e) => updateSet(i, 'reps', e.target.value)} />
-                    <button type="button" onClick={() => removeSet(i)} disabled={sets.length === 1} className="w-10 h-10 flex items-center justify-center text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-xl transition-colors disabled:opacity-30">
-                      <Trash2 size={18} />
+                <div className="space-y-2">
+                  {item.sets.map((set, index) => (
+                    <div key={`${item.exercise}-set-${index}`} className="flex items-center gap-2">
+                      <span className="w-7 text-center text-xs font-black text-slate-400">{index + 1}</span>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        value={set.weight}
+                        onChange={(event) => updateDraftSet(item.exercise, index, "weight", event.target.value)}
+                        placeholder="Weight"
+                        className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-center font-black outline-none focus:border-emerald-400 dark:border-slate-700 dark:bg-slate-950"
+                      />
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        value={set.reps}
+                        onChange={(event) => updateDraftSet(item.exercise, index, "reps", event.target.value)}
+                        placeholder="Reps"
+                        className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-center font-black outline-none focus:border-emerald-400 dark:border-slate-700 dark:bg-slate-950"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeSetFromDraft(item.exercise, index)}
+                        disabled={item.sets.length === 1}
+                        className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 disabled:opacity-30 dark:hover:bg-slate-800"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <button type="button" onClick={() => addSetToDraft(item.exercise)} className="mt-3 flex w-full items-center justify-center gap-1 rounded-xl border border-dashed border-slate-300 py-2 text-sm font-black text-slate-500 dark:border-slate-700">
+                  <Plus size={14} /> Add set
+                </button>
+              </motion.div>
+            ))
+          )}
+        </section>
+
+        <button
+          type="button"
+          onClick={saveSession}
+          disabled={saving || sessionSetCount === 0}
+          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-400 to-cyan-300 py-4 font-black text-slate-950 shadow-lg shadow-emerald-400/25 disabled:opacity-50"
+        >
+          {saving ? "Saving session..." : <><Save size={18} /> Save workout session</>}
+        </button>
+
+        <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-900">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-black uppercase tracking-widest text-slate-500">Today</h2>
+            <span className="text-xs font-black text-emerald-500">{todaysWorkouts.length} logged sets</span>
+          </div>
+          {Object.keys(groupedToday).length === 0 ? (
+            <p className="rounded-2xl border border-dashed border-slate-300 px-4 py-5 text-center text-sm font-bold text-slate-500 dark:border-slate-700">
+              No sets logged yet.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {Object.entries(groupedToday).map(([exerciseName, sets]) => (
+                <div key={exerciseName} className="rounded-2xl bg-slate-100 p-3 dark:bg-slate-950">
+                  <div className="mb-2 flex items-center justify-between">
+                    <p className="font-black">{exerciseName}</p>
+                    <button type="button" onClick={() => queueFromToday(exerciseName)} className="rounded-lg bg-white px-2 py-1 text-[10px] font-black uppercase tracking-wider text-slate-500 dark:bg-slate-800 dark:text-slate-300">
+                      Quick add
                     </button>
                   </div>
-                ))}
-              </div>
-
-              <button type="button" onClick={addSet} className="w-full py-3 border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-xl text-slate-500 font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex justify-center items-center gap-2">
-                <Plus size={18} /> Add Set
-              </button>
-            </div>
-
-            <button disabled={saving || !selectedExercise} className="w-full bg-gradient-to-r from-blue-600 to-blue-500 text-white font-black p-5 rounded-xl shadow-lg shadow-blue-500/20 active:scale-95 transition-all flex justify-center items-center gap-2">
-              {saving ? "Saving..." : <><Save size={20} /> Save Exercise</>}
-            </button>
-          </motion.form>
-        )}
-      </AnimatePresence>
-
-      {/* --- PLAYING CARD EDIT MODAL --- */}
-      <AnimatePresence>
-        {editingExercise && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-            {/* Blurred Overlay */}
-            <motion.div 
-              initial={{ opacity: 0 }} 
-              animate={{ opacity: 1 }} 
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-slate-900/40 dark:bg-black/50 backdrop-blur-md"
-              onClick={() => setEditingExercise(null)}
-            />
-            
-            {/* Horizontal Swipeable Card */}
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }} 
-              animate={{ scale: 1, opacity: 1, x: 0 }} 
-              exit={{ scale: 0.9, opacity: 0 }}
-              transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              drag="x" // Changed to X-axis dragging
-              dragConstraints={{ left: 0, right: 0 }} // Snaps back to center if not swiped far enough
-              dragElastic={0.7}
-              onDragEnd={(e, { offset, velocity }) => {
-                // Close if swiped left or right far enough, or fast enough
-                if (Math.abs(offset.x) > 120 || Math.abs(velocity.x) > 600) {
-                  setEditingExercise(null); 
-                }
-              }}
-              className="relative w-full max-w-sm max-h-[80vh] bg-white dark:bg-slate-900 rounded-3xl shadow-2xl flex flex-col z-10 cursor-grab active:cursor-grabbing overflow-hidden border border-slate-200 dark:border-white/10"
-            >
-              
-              <div className="p-6 overflow-y-auto flex-1">
-                {/* Drag Hint at the top */}
-                <div className="w-full flex justify-center mb-6">
-                  <div className="w-12 h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full" />
-                </div>
-
-                <div className="flex justify-between items-center mb-6">
-                  <div className="flex-1 mr-4" onPointerDownCapture={e => e.stopPropagation()}>
-                    <ExercisePicker
-                      exercises={exercises}
-                      selectedExercise={editingExercise}
-                      onSelect={(name) => updateExerciseName(editingExercise, name)}
-                      label="Edit Movement"
-                    />
-                  </div>
-                  
-                  <button onClick={() => setEditingExercise(null)} className="w-8 h-8 flex items-center justify-center bg-slate-100 dark:bg-slate-800 rounded-full text-slate-500 z-20 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
-                    <X size={16} />
-                  </button>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="flex px-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-                    <span className="w-8">Set</span>
-                    <span className="flex-1 text-center">Lbs</span>
-                    <span className="w-4"></span>
-                    <span className="flex-1 text-center">Reps</span>
-                    <span className="w-8"></span>
-                  </div>
-
-                  <AnimatePresence>
-                    {groupedToday[editingExercise]?.map((set, index) => (
-                      <motion.div 
-                        key={set.id} 
-                        initial={{ opacity: 0, height: 0 }} 
-                        animate={{ opacity: 1, height: "auto" }} 
-                        exit={{ opacity: 0, height: 0 }}
-                        className="flex items-center gap-2 mb-3"
-                      >
-                        <span className="w-8 text-center text-sm font-bold text-slate-400 bg-slate-50 dark:bg-slate-950 py-3 rounded-xl border border-slate-100 dark:border-slate-800">
-                          {index + 1}
-                        </span>
-                        <input 
-                          type="number" 
-                          value={set.weight || ""} 
-                          onChange={(e) => updateLoggedSet(set.id, 'weight', e.target.value)}
-                          className="flex-1 w-full min-w-0 p-3 bg-slate-50 dark:bg-slate-950 text-center font-bold text-slate-900 dark:text-white rounded-xl focus:ring-2 focus:ring-blue-500 outline-none border border-slate-100 dark:border-slate-800 transition-all cursor-text" 
-                          onPointerDownCapture={e => e.stopPropagation()} // Allows editing inputs without triggering drag
-                        />
-                        <span className="text-slate-300 dark:text-slate-600 font-bold">x</span>
-                        <input 
-                          type="number" 
-                          value={set.reps || ""} 
-                          onChange={(e) => updateLoggedSet(set.id, 'reps', e.target.value)}
-                          className="flex-1 w-full min-w-0 p-3 bg-slate-50 dark:bg-slate-950 text-center font-bold text-slate-900 dark:text-white rounded-xl focus:ring-2 focus:ring-blue-500 outline-none border border-slate-100 dark:border-slate-800 transition-all cursor-text" 
-                          onPointerDownCapture={e => e.stopPropagation()} // Allows editing inputs without triggering drag
-                        />
-                        <button onClick={() => deleteLoggedSet(set.id)} className="w-10 h-10 flex items-center justify-center text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-xl transition-colors z-20" onPointerDownCapture={e => e.stopPropagation()}>
-                          <Trash2 size={18} />
+                  <div className="space-y-1.5">
+                    {sets.slice(0, 4).map((set) => (
+                      <div key={set.id} className="flex items-center justify-between rounded-xl bg-white px-3 py-2 text-sm dark:bg-slate-900">
+                        <span className="font-bold text-slate-600 dark:text-slate-300">{set.weight} x {set.reps}</span>
+                        <button type="button" onClick={() => deleteLoggedSet(set.id)} className="text-xs font-black uppercase tracking-wider text-red-500">
+                          Delete
                         </button>
-                      </motion.div>
+                      </div>
                     ))}
-                  </AnimatePresence>
-
-                  <button 
-                    onClick={() => addSetToExistingExercise(editingExercise)} 
-                    className="w-full mt-4 py-4 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl text-slate-500 font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors flex justify-center items-center gap-2 z-20"
-                    onPointerDownCapture={e => e.stopPropagation()}
-                  >
-                    <Plus size={18} /> Add Another Set
-                  </button>
+                    {sets.length > 4 && <p className="text-xs font-bold text-slate-500">+{sets.length - 4} more sets</p>}
+                  </div>
                 </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <div className="rounded-2xl bg-emerald-400/15 px-4 py-3 text-xs font-bold text-emerald-700 dark:text-emerald-300">
+          <p className="flex items-center gap-2"><CheckCircle2 size={14} /> Session bonus applies to your first saved workout session each day.</p>
+        </div>
+      </div>
     </div>
   );
 }
+
