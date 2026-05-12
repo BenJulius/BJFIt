@@ -413,6 +413,24 @@ export default function Onboarding() {
                       <p className="flex items-center gap-2"><BadgeCheck size={14} className="text-emerald-300" /> Upgrade is optional and does not block free training logs</p>
                       <p className="flex items-center gap-2"><BadgeCheck size={14} className="text-emerald-300" /> Trial terms shown now before any checkout redirect</p>
                     </div>
+                    <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
+                      <div className="grid grid-cols-[1fr_1fr_1fr] border-b border-white/10 bg-slate-950/60 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                        <span>Feature</span>
+                        <span className="text-center">Free</span>
+                        <span className="text-center text-purple-200">Premium</span>
+                      </div>
+                      {[
+                        ["Daily workout log", "Included", "Included"],
+                        ["Character progression", "Included", "Included + advanced loadouts"],
+                        ["AI next-workout depth", "Basic", "Advanced diagnostics"],
+                      ].map(([feature, free, premium]) => (
+                        <div key={feature} className="grid grid-cols-[1fr_1fr_1fr] border-b border-white/5 px-3 py-2 text-xs font-semibold text-slate-300 last:border-b-0">
+                          <span>{feature}</span>
+                          <span className="text-center text-slate-400">{free}</span>
+                          <span className="text-center text-purple-200">{premium}</span>
+                        </div>
+                      ))}
+                    </div>
                     <div className="grid gap-3">
                       {PLAN_OPTIONS.map((plan) => (
                         <OptionCard

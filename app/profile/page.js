@@ -20,6 +20,7 @@ export default function Profile() {
   const [shopMessage, setShopMessage] = useState("");
   const [shopCategory, setShopCategory] = useState("tops");
   const [selectedShopItem, setSelectedShopItem] = useState(null);
+  const [recentLockerItems, setRecentLockerItems] = useState([]);
   const [showMaxPreview, setShowMaxPreview] = useState(false);
   const [adClaiming, setAdClaiming] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -120,6 +121,9 @@ export default function Profile() {
     const result = purchaseUpgrade(userId, profile.avatar || "panda", upgradeId);
     setCharacterState(getCharacterState(userId));
     setShopMessage(result.ok ? "Character updated." : result.reason);
+    if (result.ok) {
+      setRecentLockerItems((current) => [upgradeId, ...current.filter((id) => id !== upgradeId)].slice(0, 6));
+    }
   };
 
   const handleWatchAd = async () => {
@@ -185,6 +189,7 @@ export default function Profile() {
   const previewEquippedAlready = previewItem ? progress.equipped.includes(previewItem.id) : false;
   const categoryOwnedCount = categoryItems.filter((item) => progress.owned.includes(item.id)).length;
   const unlockPercent = categoryItems.length ? Math.round((categoryOwnedCount / categoryItems.length) * 100) : 0;
+  const recentItems = recentLockerItems.map((id) => getItemById(id)).filter(Boolean);
 
   return (
     <div className="p-5 pt-10 pb-32 max-w-md mx-auto bg-slate-50 dark:bg-slate-950 min-h-screen transition-colors">
@@ -378,6 +383,28 @@ export default function Profile() {
             </button>
           ))}
         </div>
+        {recentItems.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">Recent Styles</p>
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {recentItems.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedShopItem(item);
+                    const ownerCategory = SHOP_CATEGORIES.find((category) => (shop[category.id] || []).some((candidate) => candidate.id === item.id));
+                    if (ownerCategory) setShopCategory(ownerCategory.id);
+                  }}
+                  className="shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-left text-[10px] font-black uppercase tracking-wider text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+                >
+                  <span className="block">{item.name}</span>
+                  <span className="mt-0.5 block text-[9px] opacity-60">{progress.owned.includes(item.id) ? "Owned" : `${item.cost} tokens`}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {previewItem && (
           <div className="overflow-hidden rounded-3xl bg-slate-50 dark:bg-slate-950">
@@ -426,7 +453,10 @@ export default function Profile() {
               <button
                 key={item.id}
                 type="button"
-                onClick={() => setSelectedShopItem(item)}
+                onClick={() => {
+                  setSelectedShopItem(item);
+                  setRecentLockerItems((current) => [item.id, ...current.filter((id) => id !== item.id)].slice(0, 6));
+                }}
                 className={`relative overflow-hidden rounded-2xl border p-2 ${previewItem?.id === item.id ? "border-emerald-400 bg-emerald-400/10" : "border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950"}`}
               >
                 <div className={`character-stage relative h-24 overflow-hidden rounded-xl border border-white/10 bg-slate-950 ${owned ? "" : "grayscale"}`} style={{ background: `radial-gradient(circle at 50% 30%, ${activeCharacter.accent}30, transparent 45%), linear-gradient(145deg, ${activeCharacter.dark}66, #020617 70%)` }}>
