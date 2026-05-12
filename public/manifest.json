@@ -16,14 +16,26 @@
   "categories": ["health", "fitness", "productivity"],
   "icons": [
     {
-      "src": "/icon.png",
-      "sizes": "2048x2048",
+      "src": "/android-icon-192.png",
+      "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/maskable-icon.png",
-      "sizes": "2048x2048",
+      "src": "/android-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/maskable-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/maskable-icon-512.png",
+      "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
     }
@@ -40,22 +52,6 @@
       "short_name": "Coach",
       "url": "/insights?app=1",
       "description": "Get next-workout guidance"
-    }
-  ],
-  "screenshots": [
-    {
-      "src": "/logo-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "BJ Fit workout command center"
-    },
-    {
-      "src": "/logo-1024.png",
-      "sizes": "1024x1024",
-      "type": "image/png",
-      "form_factor": "wide",
-      "label": "BJ Fit AI coach and character progression"
     }
   ]
 }

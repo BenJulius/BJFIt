@@ -135,10 +135,10 @@ export default function HomePage() {
 
           <div className="mt-5 grid gap-3">
             <button onClick={handleInstallApp} className="flex items-center justify-center gap-2 rounded-2xl bg-emerald-400 px-4 py-4 font-black text-slate-950">
-              <Download size={18} /> Download on Google Play
+              <Download size={18} /> Install BJ Fit
             </button>
             <button onClick={handleInstallApp} className="flex items-center justify-center gap-2 rounded-2xl bg-white px-4 py-4 font-black text-slate-950">
-              <Smartphone size={18} /> Download on App Store
+              <Smartphone size={18} /> Add to Home Screen
             </button>
             <a href="/?app=1" className="flex items-center justify-center gap-2 rounded-2xl border border-cyan-400/50 bg-cyan-400/10 px-4 py-4 font-black text-cyan-200">
               <Sparkles size={18} /> Enter App Preview Mode
