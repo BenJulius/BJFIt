@@ -1,8 +1,8 @@
 {
   "name": "BJ Fit",
   "short_name": "BJ Fit",
-  "start_url": "/",
-  "id": "/",
+  "start_url": "/?app=1",
+  "id": "/?app=1",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#020617",
@@ -32,13 +32,13 @@
     {
       "name": "Log Workout",
       "short_name": "Log",
-      "url": "/log",
+      "url": "/log?app=1",
       "description": "Add exercise sets"
     },
     {
       "name": "AI Coach",
       "short_name": "Coach",
-      "url": "/insights",
+      "url": "/insights?app=1",
       "description": "Get next-workout guidance"
     }
   ],

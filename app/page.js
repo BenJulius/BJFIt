@@ -17,17 +17,21 @@ export default function HomePage() {
   const [authing, setAuthing] = useState(false);
   const [installPromptEvent, setInstallPromptEvent] = useState(null);
   const [installHint, setInstallHint] = useState("");
+  const [installedMode, setInstalledMode] = useState(false);
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 
   useEffect(() => {
     setAppMode(isAppRuntime());
+    const alreadyInstalled = window.matchMedia?.("(display-mode: standalone)")?.matches || window.navigator?.standalone;
+    setInstalledMode(Boolean(alreadyInstalled));
     const onBeforeInstallPrompt = (event) => {
       event.preventDefault();
       setInstallPromptEvent(event);
     };
     const onInstalled = () => {
       setInstallPromptEvent(null);
-      setInstallHint("App installed successfully.");
+      setInstalledMode(true);
+      setInstallHint("Installed. Check your app drawer/home screen for BJ Fit.");
     };
     window.addEventListener("beforeinstallprompt", onBeforeInstallPrompt);
     window.addEventListener("appinstalled", onInstalled);
@@ -40,14 +44,22 @@ export default function HomePage() {
   const handleInstallApp = async (event) => {
     event.preventDefault();
     setInstallHint("");
+    if (installedMode) {
+      setInstallHint("BJ Fit is already installed on this device.");
+      return;
+    }
     if (installPromptEvent) {
       installPromptEvent.prompt();
       const choice = await installPromptEvent.userChoice;
-      if (choice?.outcome !== "accepted") setInstallHint("Install canceled. You can try again anytime.");
+      if (choice?.outcome === "accepted") {
+        setInstallHint("Install accepted. Android may take a moment before the icon appears.");
+      } else {
+        setInstallHint("Install canceled. You can try again anytime.");
+      }
       setInstallPromptEvent(null);
       return;
     }
-    setInstallHint("Install prompt unavailable in this browser. Use browser menu > Install App / Add to Home Screen.");
+    setInstallHint("Install prompt unavailable right now. In Chrome: menu > Install app.");
   };
 
   const handleEmailAuth = async (e) => {
