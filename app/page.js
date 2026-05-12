@@ -15,11 +15,40 @@ export default function HomePage() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [authing, setAuthing] = useState(false);
+  const [installPromptEvent, setInstallPromptEvent] = useState(null);
+  const [installHint, setInstallHint] = useState("");
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 
   useEffect(() => {
     setAppMode(isAppRuntime());
+    const onBeforeInstallPrompt = (event) => {
+      event.preventDefault();
+      setInstallPromptEvent(event);
+    };
+    const onInstalled = () => {
+      setInstallPromptEvent(null);
+      setInstallHint("App installed successfully.");
+    };
+    window.addEventListener("beforeinstallprompt", onBeforeInstallPrompt);
+    window.addEventListener("appinstalled", onInstalled);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", onBeforeInstallPrompt);
+      window.removeEventListener("appinstalled", onInstalled);
+    };
   }, []);
+
+  const handleInstallApp = async (event) => {
+    event.preventDefault();
+    setInstallHint("");
+    if (installPromptEvent) {
+      installPromptEvent.prompt();
+      const choice = await installPromptEvent.userChoice;
+      if (choice?.outcome !== "accepted") setInstallHint("Install canceled. You can try again anytime.");
+      setInstallPromptEvent(null);
+      return;
+    }
+    setInstallHint("Install prompt unavailable in this browser. Use browser menu > Install App / Add to Home Screen.");
+  };
 
   const handleEmailAuth = async (e) => {
     e.preventDefault();
@@ -71,7 +100,7 @@ export default function HomePage() {
                 <h1 className="text-3xl font-black">Install to train</h1>
               </div>
             </div>
-            <p className="mt-4 text-sm font-semibold leading-6 text-slate-300">The web page is a preview only. Workout logging, character progression, and AI coaching open in app mode so the experience feels native and focused.</p>
+            <p className="mt-4 text-sm font-semibold leading-6 text-slate-300">This web page is a preview. Full workout logging, character progression, and coaching are designed for the installed app experience.</p>
             <div className="mt-4 grid grid-cols-3 gap-2">
               {["AI coach", "Daily quests", "Character shop"].map((label) => (
                 <div key={label} className="rounded-xl bg-slate-950 px-3 py-2 text-center text-[10px] font-black uppercase tracking-wider text-slate-400">
@@ -93,15 +122,16 @@ export default function HomePage() {
           </div>
 
           <div className="mt-5 grid gap-3">
-            <a href="#" className="flex items-center justify-center gap-2 rounded-2xl bg-emerald-400 px-4 py-4 font-black text-slate-950">
+            <button onClick={handleInstallApp} className="flex items-center justify-center gap-2 rounded-2xl bg-emerald-400 px-4 py-4 font-black text-slate-950">
               <Download size={18} /> Download on Google Play
-            </a>
-            <a href="#" className="flex items-center justify-center gap-2 rounded-2xl bg-white px-4 py-4 font-black text-slate-950">
+            </button>
+            <button onClick={handleInstallApp} className="flex items-center justify-center gap-2 rounded-2xl bg-white px-4 py-4 font-black text-slate-950">
               <Smartphone size={18} /> Download on App Store
-            </a>
+            </button>
             <a href="/?app=1" className="flex items-center justify-center gap-2 rounded-2xl border border-cyan-400/50 bg-cyan-400/10 px-4 py-4 font-black text-cyan-200">
               <Sparkles size={18} /> Enter App Preview Mode
             </a>
+            {installHint && <p className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-bold text-slate-300">{installHint}</p>}
           </div>
         </div>
       </div>
