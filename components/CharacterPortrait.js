@@ -1,14 +1,9 @@
 "use client";
 import { getCharacter } from "@/lib/characters";
-import { useState } from "react";
-import { getCharacterVisuals } from "@/lib/characterVisuals";
-import CleanCharacterImage from "@/components/CleanCharacterImage";
 
 export default function CharacterPortrait({ characterId = "panda", size = 72, className = "", level = 1 }) {
   const character = getCharacter(characterId);
   const traits = character.traits || {};
-  const visuals = getCharacterVisuals(characterId, level);
-  const [imgFailed, setImgFailed] = useState(false);
 
   return (
     <div
@@ -21,15 +16,6 @@ export default function CharacterPortrait({ characterId = "panda", size = 72, cl
       }}
     >
       <div className="absolute inset-0 bg-gradient-to-b from-white/5 via-transparent to-black/20" />
-      {!imgFailed && (
-        <CleanCharacterImage
-          src={visuals.portrait}
-          alt={`${character.name} portrait`}
-          className="absolute inset-0 h-full w-full object-cover [image-rendering:auto]"
-          onError={() => setImgFailed(true)}
-        />
-      )}
-      {imgFailed && (
       <svg viewBox="0 0 120 120" className="h-full w-full">
         <ellipse cx="60" cy="112" rx="28" ry="12" fill="#00000055" />
         <path d="M35 112 C32 86 40 72 50 72 C60 72 66 88 64 112 Z" fill="#f5c9a5" />
@@ -58,7 +44,6 @@ export default function CharacterPortrait({ characterId = "panda", size = 72, cl
         <circle cx="69" cy="28" r="2.4" fill="#f8fafc" />
         <path d="M56 42 Q60 46 64 42" stroke={character.dark} strokeWidth="3" strokeLinecap="round" fill="none" />
       </svg>
-      )}
     </div>
   );
 }
