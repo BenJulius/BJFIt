@@ -190,9 +190,30 @@ export default function Profile() {
   const categoryOwnedCount = categoryItems.filter((item) => progress.owned.includes(item.id)).length;
   const unlockPercent = categoryItems.length ? Math.round((categoryOwnedCount / categoryItems.length) * 100) : 0;
   const recentItems = recentLockerItems.map((id) => getItemById(id)).filter(Boolean);
+  const equippedItems = Object.values(shop).flat().filter((item) => progress.equipped.includes(item.id));
+  const slotLoadout = [
+    { slot: "Top", item: equippedItems.find((item) => item.equips?.includes("shirt")) },
+    { slot: "Head", item: equippedItems.find((item) => item.equips?.includes("hat") || item.equips?.includes("crown")) },
+    { slot: "Gear", item: equippedItems.find((item) => item.equips?.includes("wraps")) },
+    { slot: "Aura", item: equippedItems.find((item) => item.equips?.includes("aura")) },
+  ];
 
   return (
     <div className="p-5 pt-10 pb-32 max-w-md mx-auto bg-slate-50 dark:bg-slate-950 min-h-screen transition-colors">
+      <div className="mb-4 overflow-hidden rounded-3xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
+        <div className="h-2" style={{ background: `linear-gradient(90deg, ${activeCharacter.accent}, ${activeCharacter.dark})` }} />
+        <div className="flex items-center gap-3 p-4">
+          <CharacterPortrait characterId={activeCharacterId} size={64} className="border border-white/20 shadow-lg" />
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">BJ Fit Identity</p>
+            <p className="truncate text-xl font-black text-slate-900 dark:text-white">{profile.username ? `@${profile.username}` : activeCharacter.name}</p>
+            <p className="mt-1 text-xs font-bold text-slate-500">{activeCharacter.rank} · Lv {getCharacterLevel(progress.xp)} · {characterState?.tokens || 0} tokens</p>
+          </div>
+          <span className={`shrink-0 rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-wider ${profile?.tier === 'premium' ? 'bg-purple-100 dark:bg-purple-500/20 text-purple-600 dark:text-purple-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>
+            {profile?.tier || "Free"}
+          </span>
+        </div>
+      </div>
       <div className="mb-4 grid grid-cols-3 gap-2 rounded-2xl bg-slate-200/70 p-1 dark:bg-slate-900/80">
         {[
           { id: "overview", label: "Overview" },
@@ -355,6 +376,30 @@ export default function Profile() {
               <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">{label}</p>
             </div>
           ))}
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950">
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Active Loadout</p>
+            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">{progress.equipped.length} equipped</span>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {slotLoadout.map((slot) => (
+              <div key={slot.slot} className="rounded-xl border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900">
+                <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">{slot.slot}</p>
+                <p className="mt-1 truncate text-xs font-black text-slate-900 dark:text-white">{slot.item?.name || "None"}</p>
+              </div>
+            ))}
+          </div>
+          {previewItem && (
+            <button
+              type="button"
+              onClick={() => handleUpgrade(previewItem.id)}
+              disabled={previewEquippedAlready}
+              className="mt-3 w-full rounded-xl bg-slate-900 px-3 py-2 text-xs font-black uppercase tracking-wider text-white disabled:opacity-50 dark:bg-white dark:text-slate-950"
+            >
+              {previewEquippedAlready ? "Already in Loadout" : `Equip ${previewItem.name}`}
+            </button>
+          )}
         </div>
 
         <div className="rounded-2xl bg-slate-50 p-4 dark:bg-slate-950">

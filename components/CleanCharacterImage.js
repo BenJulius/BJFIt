@@ -12,7 +12,45 @@ function isLikelyCheckerPixel(r, g, b, a) {
   return true;
 }
 
+function colorDistance(c1, c2) {
+  return Math.abs(c1[0] - c2[0]) + Math.abs(c1[1] - c2[1]) + Math.abs(c1[2] - c2[2]);
+}
+
+function buildCheckerPalette(ctx, width, height) {
+  const frame = ctx.getImageData(0, 0, width, height);
+  const data = frame.data;
+  const sample = [];
+  const collect = (x, y) => {
+    const i = (y * width + x) * 4;
+    if (isLikelyCheckerPixel(data[i], data[i + 1], data[i + 2], data[i + 3])) {
+      sample.push([data[i], data[i + 1], data[i + 2]]);
+    }
+  };
+
+  for (let x = 0; x < width; x += Math.max(1, Math.floor(width / 16))) {
+    collect(x, 0);
+    collect(x, height - 1);
+  }
+  for (let y = 0; y < height; y += Math.max(1, Math.floor(height / 16))) {
+    collect(0, y);
+    collect(width - 1, y);
+  }
+  collect(0, 0);
+  collect(width - 1, 0);
+  collect(0, height - 1);
+  collect(width - 1, height - 1);
+
+  const palette = [];
+  sample.forEach((color) => {
+    const existing = palette.find((candidate) => colorDistance(candidate, color) <= 18);
+    if (!existing) palette.push(color);
+  });
+  return palette.slice(0, 4);
+}
+
 function clearEdgeConnectedCheckerboard(ctx, width, height) {
+  const palette = buildCheckerPalette(ctx, width, height);
+  if (!palette.length) return;
   const frame = ctx.getImageData(0, 0, width, height);
   const pixels = frame.data;
   const visited = new Uint8Array(width * height);
@@ -26,7 +64,9 @@ function clearEdgeConnectedCheckerboard(ctx, width, height) {
     if (visited[idx]) return;
     visited[idx] = 1;
     const p = idx * 4;
-    if (isLikelyCheckerPixel(pixels[p], pixels[p + 1], pixels[p + 2], pixels[p + 3])) {
+    const pixel = [pixels[p], pixels[p + 1], pixels[p + 2]];
+    const isPaletteMatch = palette.some((candidate) => colorDistance(candidate, pixel) <= 24);
+    if (isPaletteMatch && isLikelyCheckerPixel(pixels[p], pixels[p + 1], pixels[p + 2], pixels[p + 3])) {
       queue[tail++] = idx;
     }
   };
@@ -56,6 +96,8 @@ function clearEdgeConnectedCheckerboard(ctx, width, height) {
 }
 
 function removeResidualCheckerPixels(ctx, width, height) {
+  const palette = buildCheckerPalette(ctx, width, height);
+  if (!palette.length) return;
   const frame = ctx.getImageData(0, 0, width, height);
   const data = frame.data;
   for (let i = 0; i < data.length; i += 4) {
@@ -64,6 +106,8 @@ function removeResidualCheckerPixels(ctx, width, height) {
     const b = data[i + 2];
     const a = data[i + 3];
     if (!isLikelyCheckerPixel(r, g, b, a)) continue;
+    const pixel = [r, g, b];
+    if (!palette.some((candidate) => colorDistance(candidate, pixel) <= 20)) continue;
     const brightness = (r + g + b) / 3;
     const max = Math.max(r, g, b);
     const min = Math.min(r, g, b);

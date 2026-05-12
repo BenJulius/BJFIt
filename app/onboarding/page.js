@@ -37,10 +37,10 @@ import {
 } from "lucide-react"
 
 const cardMotion = {
-  initial: { opacity: 0, y: 16 },
-  animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -10 },
-  transition: { duration: 0.22 },
+  initial: { opacity: 0, y: 28, scale: 0.98 },
+  animate: { opacity: 1, y: 0, scale: 1 },
+  exit: { opacity: 0, y: -18, scale: 0.98 },
+  transition: { duration: 0.48, ease: "easeOut" },
 }
 
 function OptionCard({ selected, title, description, meta, icon, onClick, tone = "emerald" }) {
@@ -220,8 +220,10 @@ export default function Onboarding() {
               </div>
               <div className="mx-auto flex w-full max-w-sm flex-1 items-center justify-center">
                 <div className="relative w-full">
-                  <div className="absolute inset-x-10 bottom-10 h-24 rounded-full bg-black/30 blur-2xl" />
-                  <CharacterPortrait characterId={formData.avatar} size={300} className="relative mx-auto border border-white/15 shadow-2xl shadow-black/30" />
+                  <motion.div animate={{ opacity: [0.18, 0.42, 0.18], scale: [0.94, 1.06, 0.94] }} transition={{ duration: 4.2, repeat: Infinity, ease: "easeInOut" }} className="absolute inset-x-8 bottom-8 h-28 rounded-full bg-emerald-400/25 blur-3xl" />
+                  <motion.div animate={{ y: [0, -10, 0], rotate: [-1, 1, -1] }} transition={{ duration: 4.8, repeat: Infinity, ease: "easeInOut" }}>
+                    <CharacterPortrait characterId={formData.avatar} size={300} className="relative mx-auto border border-white/15 shadow-2xl shadow-black/30" />
+                  </motion.div>
                 </div>
               </div>
               <div className="grid gap-3">
@@ -243,7 +245,9 @@ export default function Onboarding() {
               <div className="relative overflow-hidden rounded-[1.75rem] border border-white/10 bg-slate-900 p-4">
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_25%_10%,rgba(52,211,153,0.22),transparent_34%),linear-gradient(135deg,#020617,#111827)]" />
                 <div className="relative flex items-center gap-4">
-                  <CharacterPortrait characterId={formData.avatar} size={88} className="border border-white/15" />
+                  <motion.div animate={{ y: [0, -4, 0] }} transition={{ duration: 3.8, repeat: Infinity, ease: "easeInOut" }}>
+                    <CharacterPortrait characterId={formData.avatar} size={88} className="border border-white/15" />
+                  </motion.div>
                   <div className="min-w-0">
                     <p className="text-xl font-black">{activeCharacter.name} setup</p>
                     <p className="mt-1 text-sm font-semibold leading-5 text-slate-300">{coachLine}</p>
@@ -400,7 +404,8 @@ export default function Onboarding() {
                 )}
 
                 {step === 7 && (
-                  <motion.div key="premium" {...cardMotion} className="space-y-5 pt-8 sm:pt-6">
+                  <motion.div key="premium" {...cardMotion} className="relative space-y-5 pt-8 sm:pt-6">
+                    <motion.div animate={{ opacity: [0.2, 0.6, 0.2], scale: [0.96, 1.04, 0.96] }} transition={{ duration: 3.6, repeat: Infinity, ease: "easeInOut" }} className="absolute inset-x-8 top-12 h-20 rounded-full bg-purple-400/20 blur-2xl" />
                     <div className="text-center">
                       <span className="mx-auto inline-flex items-center gap-2 rounded-full border border-purple-300/30 bg-purple-300/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-purple-200">
                         <Sparkles size={13} /> Optional upgrade
