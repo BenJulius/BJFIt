@@ -33,6 +33,7 @@ import {
   Target,
   UserCheck,
   Zap,
+  Lock,
 } from "lucide-react"
 
 const cardMotion = {
@@ -407,6 +408,11 @@ export default function Onboarding() {
                       <h2 className="mt-4 text-3xl font-black">Start with the right coach layer.</h2>
                       <p className="mt-2 text-sm font-semibold leading-6 text-slate-400">Free keeps logging available. Premium adds deeper AI analysis once your workout history starts building.</p>
                     </div>
+                    <div className="grid gap-2 rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-xs font-bold text-slate-200">
+                      <p className="flex items-center gap-2"><BadgeCheck size={14} className="text-emerald-300" /> Personalized progression based on your logged sessions</p>
+                      <p className="flex items-center gap-2"><BadgeCheck size={14} className="text-emerald-300" /> Upgrade is optional and does not block free training logs</p>
+                      <p className="flex items-center gap-2"><BadgeCheck size={14} className="text-emerald-300" /> Trial terms shown now before any checkout redirect</p>
+                    </div>
                     <div className="grid gap-3">
                       {PLAN_OPTIONS.map((plan) => (
                         <OptionCard
@@ -425,7 +431,7 @@ export default function Onboarding() {
                       <label className="flex items-start gap-3 rounded-2xl border border-amber-300/20 bg-amber-300/10 p-4">
                         <input type="checkbox" checked={acceptTrialTerms} onChange={(e) => setAcceptTrialTerms(e.target.checked)} className="mt-1 h-4 w-4 accent-emerald-400" />
                         <span className="text-sm font-bold leading-6 text-amber-50">
-                          I understand the 7-day free trial starts at checkout. If I do not cancel before the trial ends, BJ Fit renews on the selected plan: {activePlan.renewal}.
+                          I understand there is no charge today. The 7-day trial starts at checkout, then BJ Fit renews on this plan unless canceled before trial end: {activePlan.renewal}.
                         </span>
                       </label>
                     )}
@@ -527,9 +533,14 @@ export default function Onboarding() {
                     <button type="button" onClick={finishSignup} disabled={loading} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-400 to-cyan-300 py-4 font-black text-slate-950 shadow-lg shadow-emerald-500/20 transition active:scale-[0.99] disabled:opacity-60">
                       {loading ? "Saving setup..." : <><UserCheck size={20} /> {premiumSelected ? "Start 7-Day Trial" : "Enter BJ Fit"}</>}
                     </button>
-                    <p className="flex items-center justify-center gap-2 text-center text-xs font-bold leading-5 text-slate-500">
-                      <CalendarClock size={14} /> {premiumSelected ? activePlan.renewal : "No trial or billing selected."}
-                    </p>
+                    <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">
+                      <p className="flex items-center justify-center gap-2 text-center text-xs font-bold leading-5 text-slate-400">
+                        <Lock size={12} /> Secure checkout redirect only if premium is selected.
+                      </p>
+                      <p className="mt-1 flex items-center justify-center gap-2 text-center text-xs font-bold leading-5 text-slate-500">
+                        <CalendarClock size={14} /> {premiumSelected ? `No charge today. ${activePlan.renewal}.` : "No trial or billing selected."}
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>

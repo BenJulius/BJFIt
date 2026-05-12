@@ -11,12 +11,21 @@ export default function CharacterPortrait({ characterId = "panda", size = 72, cl
   const [imgFailed, setImgFailed] = useState(false);
 
   return (
-    <div className={`character-stage relative overflow-hidden rounded-2xl bg-slate-950 ${className}`} style={{ width: size, height: size, background: `radial-gradient(circle at 50% 36%, ${character.accent}30, transparent 44%), linear-gradient(145deg, ${character.dark}66, #020617 70%)` }}>
+    <div
+      className={`character-stage relative overflow-hidden rounded-2xl bg-slate-950 ${className}`}
+      style={{
+        width: size,
+        height: size,
+        background: `radial-gradient(circle at 50% 36%, ${character.accent}30, transparent 44%), linear-gradient(145deg, ${character.dark}66, #020617 70%)`,
+        boxShadow: "inset 0 -18px 34px rgba(0,0,0,0.42)",
+      }}
+    >
+      <div className="absolute inset-0 bg-gradient-to-b from-white/5 via-transparent to-black/20" />
       {!imgFailed && (
         <CleanCharacterImage
           src={visuals.portrait}
           alt={`${character.name} portrait`}
-          className="absolute inset-0 h-full w-full object-cover"
+          className="absolute inset-0 h-full w-full object-cover [image-rendering:auto]"
           onError={() => setImgFailed(true)}
         />
       )}

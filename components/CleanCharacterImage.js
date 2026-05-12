@@ -1,15 +1,73 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 
-function shouldClearPixel(r, g, b, a) {
-  if (a < 250) return false;
+function isLikelyCheckerPixel(r, g, b, a) {
+  if (a < 245) return false;
   const max = Math.max(r, g, b);
   const min = Math.min(r, g, b);
-  const range = max - min;
-  if (range > 16) return false;
-  // Typical checkerboard backgrounds are neutral grays in this brightness range.
+  const saturationRange = max - min;
+  if (saturationRange > 24) return false;
   const brightness = (r + g + b) / 3;
-  return brightness >= 90 && brightness <= 235;
+  if (brightness < 100 || brightness > 248) return false;
+  return true;
+}
+
+function clearEdgeConnectedCheckerboard(ctx, width, height) {
+  const frame = ctx.getImageData(0, 0, width, height);
+  const pixels = frame.data;
+  const visited = new Uint8Array(width * height);
+  const queue = new Uint32Array(width * height);
+  let head = 0;
+  let tail = 0;
+
+  const tryQueue = (x, y) => {
+    if (x < 0 || y < 0 || x >= width || y >= height) return;
+    const idx = y * width + x;
+    if (visited[idx]) return;
+    visited[idx] = 1;
+    const p = idx * 4;
+    if (isLikelyCheckerPixel(pixels[p], pixels[p + 1], pixels[p + 2], pixels[p + 3])) {
+      queue[tail++] = idx;
+    }
+  };
+
+  for (let x = 0; x < width; x += 1) {
+    tryQueue(x, 0);
+    tryQueue(x, height - 1);
+  }
+  for (let y = 1; y < height - 1; y += 1) {
+    tryQueue(0, y);
+    tryQueue(width - 1, y);
+  }
+
+  while (head < tail) {
+    const idx = queue[head++];
+    const p = idx * 4;
+    pixels[p + 3] = 0;
+    const x = idx % width;
+    const y = Math.floor(idx / width);
+    tryQueue(x + 1, y);
+    tryQueue(x - 1, y);
+    tryQueue(x, y + 1);
+    tryQueue(x, y - 1);
+  }
+
+  ctx.putImageData(frame, 0, 0);
+}
+
+function removeResidualCheckerPixels(ctx, width, height) {
+  const frame = ctx.getImageData(0, 0, width, height);
+  const data = frame.data;
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+    const a = data[i + 3];
+    if (!isLikelyCheckerPixel(r, g, b, a)) continue;
+    const brightness = (r + g + b) / 3;
+    if (brightness > 180) data[i + 3] = Math.min(a, 40);
+  }
+  ctx.putImageData(frame, 0, 0);
 }
 
 export default function CleanCharacterImage({ src, alt, className = "", onError }) {
@@ -21,7 +79,6 @@ export default function CleanCharacterImage({ src, alt, className = "", onError 
     if (!src || !canvasRef.current) return undefined;
 
     const img = new Image();
-    img.crossOrigin = "anonymous";
     img.onload = () => {
       if (!active || !canvasRef.current) return;
       const canvas = canvasRef.current;
@@ -33,16 +90,8 @@ export default function CleanCharacterImage({ src, alt, className = "", onError 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(img, 0, 0);
 
-      const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const data = frame.data;
-      for (let i = 0; i < data.length; i += 4) {
-        const r = data[i];
-        const g = data[i + 1];
-        const b = data[i + 2];
-        const a = data[i + 3];
-        if (shouldClearPixel(r, g, b, a)) data[i + 3] = 0;
-      }
-      ctx.putImageData(frame, 0, 0);
+      clearEdgeConnectedCheckerboard(ctx, canvas.width, canvas.height);
+      removeResidualCheckerPixels(ctx, canvas.width, canvas.height);
     };
     img.onerror = () => {
       setFailed(true);

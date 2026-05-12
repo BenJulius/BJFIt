@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { Eye, EyeOff, Loader2, AlertCircle, CheckCircle2, LogOut, Trash2, Edit2, Save, X, Coins } from "lucide-react";
+import { Eye, EyeOff, Loader2, AlertCircle, CheckCircle2, LogOut, Trash2, Edit2, Save, X, Coins, Wand2, PencilLine, ShieldCheck } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { differenceInDays } from "date-fns";
 import AvatarPicker from "@/components/AvatarPicker";
@@ -168,7 +168,18 @@ export default function Profile() {
   const categoryItems = shop[shopCategory] || [];
   const activeCategory = SHOP_CATEGORIES.find((category) => category.id === shopCategory);
   const previewItem = selectedShopItem || categoryItems[0];
-  const previewEquipped = previewItem ? [...new Set([...progress.equipped, previewItem.id])] : progress.equipped;
+  const getSlot = (slot) => (slot === "hat" || slot === "crown" ? "head" : slot);
+  const getItemById = (itemId) => Object.values(shop).flat().find((candidate) => candidate.id === itemId);
+  const mergePreviewEquipped = (equippedIds, item) => {
+    if (!item) return equippedIds;
+    const removeSlots = new Set((item.equips || []).map(getSlot));
+    const kept = equippedIds.filter((id) => {
+      const existing = getItemById(id);
+      return !existing || !(existing.equips || []).some((slot) => removeSlots.has(getSlot(slot)));
+    });
+    return [...new Set([...kept, item.id])];
+  };
+  const previewEquipped = previewItem ? mergePreviewEquipped(progress.equipped, previewItem) : progress.equipped;
   const previewXP = showMaxPreview ? MAX_CHARACTER_LEVEL : progress.xp;
   const previewOwned = previewItem ? progress.owned.includes(previewItem.id) : false;
   const previewEquippedAlready = previewItem ? progress.equipped.includes(previewItem.id) : false;
@@ -197,6 +208,35 @@ export default function Profile() {
           </button>
         ))}
       </div>
+      <div className="mb-4 grid grid-cols-3 gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab("locker");
+            setShowMaxPreview(true);
+          }}
+          className="flex items-center justify-center gap-1 rounded-xl border border-slate-200 bg-white px-2 py-2 text-[10px] font-black uppercase tracking-wider text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+        >
+          <Wand2 size={12} /> Max Preview
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab("account");
+            setIsEditing(true);
+          }}
+          className="flex items-center justify-center gap-1 rounded-xl border border-slate-200 bg-white px-2 py-2 text-[10px] font-black uppercase tracking-wider text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+        >
+          <PencilLine size={12} /> Edit Profile
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("overview")}
+          className="flex items-center justify-center gap-1 rounded-xl border border-slate-200 bg-white px-2 py-2 text-[10px] font-black uppercase tracking-wider text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+        >
+          <ShieldCheck size={12} /> Overview
+        </button>
+      </div>
 
       {activeTab === "overview" && (
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center gap-4 mb-8">
@@ -216,11 +256,11 @@ export default function Profile() {
             <button
               type="button"
               onClick={() => {
-                setActiveTab("account");
-                setIsEditing(true);
+                setActiveTab("locker");
               }}
               className="rounded-xl border border-slate-200 bg-slate-100 p-2 text-slate-700 transition-colors hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
-              title="Edit character"
+              title="Edit character style"
+              aria-label="Edit character style"
             >
               <Edit2 size={16} />
             </button>
@@ -351,7 +391,7 @@ export default function Profile() {
               </span>
             </div>
             <div className="grid grid-cols-[120px_1fr] gap-4 p-4">
-            <div className={`relative overflow-hidden rounded-2xl ${previewOwned ? "" : "grayscale"}`}>
+            <div className={`character-stage relative overflow-hidden rounded-2xl bg-slate-950 ${previewOwned ? "" : "grayscale"}`} style={{ background: `radial-gradient(circle at 50% 30%, ${activeCharacter.accent}30, transparent 42%), linear-gradient(145deg, ${activeCharacter.dark}66, #020617 70%)` }}>
               <LevelCompanion
                 totalXP={profile.total_xp || 0}
                 size="compact"
@@ -381,7 +421,7 @@ export default function Profile() {
           {categoryItems.map((item) => {
             const owned = progress.owned.includes(item.id);
             const equipped = progress.equipped.includes(item.id);
-            const tileEquipped = [...new Set([...progress.equipped.filter((id) => id !== item.id), item.id])];
+            const tileEquipped = mergePreviewEquipped(progress.equipped, item);
             return (
               <button
                 key={item.id}
@@ -389,7 +429,7 @@ export default function Profile() {
                 onClick={() => setSelectedShopItem(item)}
                 className={`relative overflow-hidden rounded-2xl border p-2 ${previewItem?.id === item.id ? "border-emerald-400 bg-emerald-400/10" : "border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950"}`}
               >
-                <div className={`relative h-24 overflow-hidden rounded-xl border border-white/10 ${owned ? "" : "grayscale"}`}>
+                <div className={`character-stage relative h-24 overflow-hidden rounded-xl border border-white/10 bg-slate-950 ${owned ? "" : "grayscale"}`} style={{ background: `radial-gradient(circle at 50% 30%, ${activeCharacter.accent}30, transparent 45%), linear-gradient(145deg, ${activeCharacter.dark}66, #020617 70%)` }}>
                   <LevelCompanion
                     totalXP={profile.total_xp || 0}
                     size="compact"
@@ -494,6 +534,13 @@ export default function Profile() {
                    </span>
                 </div>
               </div>
+              <button
+                type="button"
+                onClick={() => setIsEditing(true)}
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
+              >
+                Edit age, weight, goal, and character
+              </button>
               {profile?.tier !== "premium" && (
                 <div className="rounded-2xl border border-purple-300 bg-purple-50 p-4 dark:border-purple-400/20 dark:bg-purple-500/10">
                   <p className="text-xs font-black uppercase tracking-wider text-purple-700 dark:text-purple-300">Premium Coach</p>
