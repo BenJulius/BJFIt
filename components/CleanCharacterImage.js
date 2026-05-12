@@ -65,7 +65,14 @@ function removeResidualCheckerPixels(ctx, width, height) {
     const a = data[i + 3];
     if (!isLikelyCheckerPixel(r, g, b, a)) continue;
     const brightness = (r + g + b) / 3;
-    if (brightness > 180) data[i + 3] = Math.min(a, 40);
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    const saturationRange = max - min;
+    if (brightness > 155 && saturationRange < 16) {
+      data[i + 3] = 0;
+    } else if (brightness > 125 && saturationRange < 12) {
+      data[i + 3] = Math.min(a, 24);
+    }
   }
   ctx.putImageData(frame, 0, 0);
 }

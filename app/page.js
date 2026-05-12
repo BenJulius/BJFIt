@@ -5,6 +5,7 @@ import Script from "next/script";
 import { supabase } from "@/lib/supabase";
 import { ArrowRight, Download, Mail, ShieldCheck, Smartphone, Sparkles } from "lucide-react";
 import { isAppRuntime } from "@/lib/runtimeMode";
+import CleanCharacterImage from "@/components/CleanCharacterImage";
 
 export default function HomePage() {
   const [appMode, setAppMode] = useState(false);
@@ -82,11 +83,11 @@ export default function HomePage() {
 
           <div className="mt-4 grid grid-cols-2 gap-3">
             <div className="rounded-2xl border border-white/10 bg-slate-900 p-3">
-              <img src="/characters/lion/body-elite.png" alt="Lion character preview" className="h-40 w-full rounded-xl bg-slate-950 object-contain p-2" />
+              <CleanCharacterImage src="/characters/lion/body-elite.png" alt="Lion character preview" className="h-40 w-full rounded-xl bg-slate-950 object-contain p-2" />
               <p className="mt-2 text-xs font-black uppercase tracking-wider text-slate-400">Elite forms</p>
             </div>
             <div className="rounded-2xl border border-white/10 bg-slate-900 p-3">
-              <img src="/characters/shark/body-advanced.png" alt="Shark character preview" className="h-40 w-full rounded-xl bg-slate-950 object-contain p-2" />
+              <CleanCharacterImage src="/characters/shark/body-advanced.png" alt="Shark character preview" className="h-40 w-full rounded-xl bg-slate-950 object-contain p-2" />
               <p className="mt-2 text-xs font-black uppercase tracking-wider text-slate-400">Locker drops</p>
             </div>
           </div>
